@@ -53,27 +53,55 @@
 
 // === INITIALIZE VARIABLES ==================================================
 
-// timer stuff
+// -------- timer stuff ----------------------------------------------------
 // pic is 240 pixels x 320 pixels, scale is appropriate
 // pg 162 of pic32 manual, timer period is an int  
 int TIMEOUT = 800000;// For ISR, but only if we get to adding music
 
-int chaseTimer;
-int frightTimer;
-char isStart;
-int button_check;
-int buttonCounter;
-int begin_time, check_time, prevDirection;
-short xPacman=120;
+// The scatter/chase timer gets reset whenever a life is lost or a level is completed,
+// and it is paused when frighten mode is triggered
+// At the start of a level or after losing a life, ghosts emerge from the ghost 
+// pen already in the first of the four scatter modes.
+// scatter mode lasts 7s for instance 1,2 and 5 s for instance 3,4
+int chaseTimer;  //switch to scatter mode once chase timer is above 20s, 4x per level
+int frightTimer; //triggered when PICMAN eats Big Dots
+char isStart;    //flag set once start button pressed on Python GUI
+int begin_time, check_time; //begin used in timer thread, check is to turn on LED as long as we meet animation requirement
+
+// -------- character animation stuff ---------------------------------------
+int direction;      //takes in WASD or arrow key input to change PICMAN motion
+int Bdirection = 2; //blinky's current direction. ghosts all initially move initially left 
+int Pdirection = 2; //pinky's current direction
+int Idirection = 2; // inky's current direction
+int Cdirection = 2; // clyde. what a baller. does his own shit yk 
+int prevDirection;  //stores pacmans previous direction in the event user tries to change direction into dead space
+int prevBDirection; //blinky
+int prevPDirection; //pinky
+int prevIDirection; //inky
+int prevCDirection; //CLYDE we stan
+int oppBDirection;  //store direction opposite to Blinky's current direction, useful bc ghosts cannot reverse
+int oppPDirection;  //pinky
+int oppIDirection;  //inky
+int oppCDirection;  //clyde, loml
+int P_xtarget;      //ghost target tiles, updated every animation loop based on picmans position
+int P_ytarget;      //Blnky's target tile is picman and we just didnt create a separate variable 
+int I_xtarget;
+int I_ytarget;
+int C_xtarget;
+int C_ytarget;
+
+int score;
+int lives = 3;
+short xPacman=120; //initial pacman position stored as x,y pixel coords on tft
 short yPacman=228;
-short xBlinky=120;
+short xBlinky=120; //blinky starts just above pen, in scatter mode
 short yBlinky=132;
 char ghostArray[4]={2,0,0,0};//blinky,pinky,inky,clyde
                              //0->in pen, 1->chase, 2->scatter, 3->frightened
 int ghostCounters[3];//pinky,inky,clyde
-int prevState;
+int prevState[4]; //store ghost state so that when they come out of frighten mode, they return to chase or scatter
 
-const char map[36][28]={
+const char map[36][28]={ //hard code dead space and legal spaceTILES oof
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -110,10 +138,10 @@ const char map[36][28]={
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
-    };
+    }; //ew 
 
 
-char dots[36][28] = {
+char dots[36][28] = { //hard code which legal space tiles have dots 
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -152,14 +180,9 @@ char dots[36][28] = {
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
 
-
-// character animation stuff
-int direction; //takes in WASD or arrow key input to change PICMAN motion
-int score;
-
 ////////////////////////////////////
 // === print a line on TFT =====================================================
-// print string buffer
+// funstion written by Bruce 
 char tft_str_buffer[60];
 // SEE 
 // http://people.ece.cornell.edu/land/courses/ece4760/PIC32/index_TFT_display.html
@@ -199,7 +222,7 @@ void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
    
 }
 
-// === Timer Thread =================================================
+// === Timer Thread: CONTROLS GHOST MODES ======================================
 // update a 1 second tick counter
 static PT_THREAD (protothread_timer(struct pt *pt))
 {
@@ -208,78 +231,82 @@ static PT_THREAD (protothread_timer(struct pt *pt))
     //tft_setTextColor(ILI9340_WHITE);  tft_setTextSize(2);
     //tft_writeString("Time in seconds since boot\n");
     while(1) {
-        // yield time 1 second
-        PT_YIELD_TIME_msec(1000) ;
-        if (isStart==1 && ghostArray[0]!=3){
-            chaseTimer++;
+        PT_YIELD_TIME_msec(1000); // yield time 1 second
+        // chase timers reset after pacman loses a life
+        // ghosts reverse directions for mode changes EXCEPT when returning from frighten mode
+        if (isStart==1 && ghostArray[0]!=3){ //if game is started via GUI and ghosts are not in frightened mode
+            //0->in pen, 1->chase, 2->scatter, 3->frightened
+            chaseTimer++; //increment timer to keep track of how long we've been in chase mode
+            // ONLY increments if not in frightened mode !! nice 
+            
             int i;
-            if (chaseTimer<7){
-                for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=2;
+            if (chaseTimer<7){ //ghosts start in scatter mode, first scatter lasts 7 s
+                for (i=0;i<4;i++){ // for all four ghosts
+                    if (ghostArray[i]!=0){ //if ghost is not in monster pen
+                        ghostArray[i]=2;   //ghosts start in scatter1
                     }
                 }
             }
-            else if (chaseTimer<27){
+            else if (chaseTimer<27){ //go to chase mode after scatter1 for 7s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=1;
+                    if (ghostArray[i]!=0){ //if ghost is not in monster pen
+                        ghostArray[i]=1;   //change ghosts back to chase
                     }
                 }
             }
-            else if (chaseTimer<34){
+            else if (chaseTimer<34){ //scatter2 for 7s after chase for 20s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=2;
+                    if (ghostArray[i]!=0){ //if ghosts not in monster pen
+                        ghostArray[i]=2;   //change ghosts from chase to scatter2
                     }
                 }
             }
-            else if (chaseTimer<54){
+            else if (chaseTimer<54){ //chase for 20s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=1;
+                    if (ghostArray[i]!=0){ //if ghosts not in monster pen 
+                        ghostArray[i]=1;   //change ghosts back to chase
                     }
                 }
             }
-            else if (chaseTimer<59){
+            else if (chaseTimer<59){ //scatter3 for 5s after chase for 20s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=2;
+                    if (ghostArray[i]!=0){ // if ghosts not in monster pen
+                        ghostArray[i]=2;   //scatter3
                     }
                 }
             }
-            else if (chaseTimer<79){
+            else if (chaseTimer<79){       //chase mode for 20s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=1;
+                    if (ghostArray[i]!=0){ // if ghosts not in monster pen
+                        ghostArray[i]=1;   //chase mode
                     }
                 }
             }
-            else if (chaseTimer<84){
+            else if (chaseTimer<84){      //scatter4 for 5s after chase for 20s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=2;
-                    }
+                    if (ghostArray[i]!=0){ //if ghosts not in monster pen
+                        ghostArray[i]=2;   //scatter4
+                    } 
                 }
             }
             else {
-                for (i=0;i<4;i++){
+                for (i=0;i<4;i++){   //after scatter4, stay in chase
                     if (ghostArray[i]!=0){
                         ghostArray[i]=1;
                     }
                 }
             }
         }
-        else if (isStart==1 && ghostArray[0]==3){
-            frightTimer++;
+        else if (isStart==1 && ghostArray[0]==3){ // if game is started and blinky is in frightened
+            frightTimer++; //increment timer that keeps track of how long we've been in frighten mode
             int i;
-            if (frightTimer>6) {
+            if (frightTimer>6) { //frighten mode lasts 6s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        ghostArray[i]=prevState;//remember to save prev state and change here
+                    if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
+                        ghostArray[i]=prevState;//remember to save prev state and change here, ie return to scatter or chase from frighten
                     }
                 }
-                frightTimer=0;
+                frightTimer=0; //reset frighten timer 
             }
         }
         //tft_setCursor(200, 15);
@@ -293,82 +320,78 @@ static PT_THREAD (protothread_timer(struct pt *pt))
 
 
 // === ANIMATION THREAD==================================================== //
-//Declare boid initial position and velocity randomly
-// loop through boids at each time step
-// update velocity based on parameters input from python GUI
-// use euler solver to update position
-// animate at 30 fps 
+// plots picman continuously in direction last set by GUI input
+// if ghosts in frighten mode, choose direction at intersection randomly
+// if ghosts in scatter mode, path logic according to home tile
+// if ghosts in chase mode, path logic according to target tile = f(picman's current tile)
                               
 static PT_THREAD (protothread_animation (struct pt *pt)){
     PT_BEGIN(pt);
     while(1){
-        begin_time = PT_GET_TIME();  // objective animation speed 30FPS
-        tft_drawCircle(xPacman,yPacman,3,ILI9340_BLACK); //pic-man
-        tft_drawCircle(xBlinky,yBlinky,2,ILI9340_BLACK); //blinky
-        int current_xtile = (xPacman-8)/8;
-        int current_ytile = (yPacman - 16)/8;
-        //int remainderX=current_xtile%8;
-        //int remainderY=current_ytile%8;
-        if (isStart==1){
-            if(dots[current_ytile][current_xtile]==1){
-                score+=10;
-                dots[current_ytile][current_xtile]=0;
-                sprintf(tft_str_buffer,"  Score: %d  ", score);
-                tft_printLine(18, 5, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+        begin_time = PT_GET_TIME();  // objective animation speed 60FPS
+        
+        ////////////PAC MAN ///////////////////////////////////
+        int currentxPacman = xPacman;
+        int currentyPacman = yPacman;
+        int current_xtile = (xPacman-8)/8; //we centered the maze on the TFT. subtract centering offset and divide by 8 to get tile
+        int current_ytile = (yPacman - 16)/8; 
+        
+        if (isStart==1){ //only animate if game has started
+            //----- MUNCH THE DOTS ---------------------------------------------
+            if(dots[current_ytile][current_xtile]==1){ //if pacman passes through a new dot
+                score+=10; //then increase points
+                dots[current_ytile][current_xtile]=0; //note that the dot is gone by updating array
+                sprintf(tft_str_buffer,"%d", score); //preint new score
+                tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);        
             }
-            else if (dots[current_ytile][current_xtile]==2){
-                score+=50;
-                dots[current_ytile][current_xtile]=0;
+            else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
+                score+=50; // increase points 
+                dots[current_ytile][current_xtile]=0; //store new dot value
                 int i;
-                for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){
-                        prevState=ghostArray[i];
-                        ghostArray[i]=3;
+                for (i=0;i<4;i++){ //trigger frighten mode
+                    if (ghostArray[i]!=0){ //if ghosts not in pen 
+                        prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
+                        ghostArray[i]=3; //doin me a frighten 
                     }
                 }
-                //tft_drawCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
-                tft_drawCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),4,ILI9340_BLACK);  
-                sprintf(tft_str_buffer,"  Score: %d  ", score);
-                tft_printLine(18, 5, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+                //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
+                tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
+                sprintf(tft_str_buffer,"%d", score); //preint new score
+                tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2); 
             }
 
-            int new_xtile;
+            // ------ PLOT MsPICMAN ------------------------------------------
+            //basically, picman moves according to last direction set by gui
+            // we have the current tile, we increment pixel position, then calculate "new_tile"
+            // if new tile is dead, then decrement the pixel position and this process repeats (picman stops moving @walls)
+            //if legal tile, proceed w plotting 
+            int new_xtile; 
             int new_ytile;
             /*move in direction*/
             if (direction==1) { //up
-                yPacman-=1;
-                if (yPacman<17)
-                    yPacman=303;
-                new_xtile = (xPacman-8)/8;
+                yPacman-=1; //positive y is defined down for tft 
+                new_xtile = (xPacman-8)/8; //this is the tile she wants to move to but we need to check if its legal first
                 new_ytile = ((yPacman-4) - 16)/8;
-                //printf("new x = %d",new_xtile);
-                //printf("new y = %d",new_ytile);
-                if (map[new_ytile][new_xtile]==0){
-                    if(yPacman==303)
-                        yPacman=17;
-                    else
-                        yPacman+=1;
-                    if (prevDirection!=0)
-                        direction=prevDirection;
+                if (map[new_ytile][new_xtile]==0){ //if new tile is dead space
+                    yPacman+=1; //then decrement position back
+                    if (prevDirection!=0) //if the user tried to move up but it turned out to be illegal
+                        direction=prevDirection; //reset the previous direction
                 }
-                else {
+                else { // tile is legal
                     if (prevDirection==2 || prevDirection==4){//check if turned from left/right
-                        xPacman=current_xtile*8+8+4;
+                        xPacman=current_xtile*8+8+4; //calculate new xtile
                     }
-                    prevDirection=direction;
+                    prevDirection=direction; //set previous direction now because direction is updaed when GUI is changed
                 }
             }    
             else if (direction==2) { //left
                 xPacman-=1;
-                if (xPacman<10) //wrap
+                if (xPacman<10) //wrap, this only happens at the "hallway"
                     xPacman=228;
                 new_xtile = ((xPacman-4)-8)/8;
                 new_ytile = (yPacman - 16)/8;
-                //printf("new x = %d\n",new_xtile);
-                //printf("new y = %d\n",new_ytile);
-                if (map[new_ytile][new_xtile]==0) {
-                    //printf("in if\n");
-                    if(xPacman==228)
+                if (map[new_ytile][new_xtile]==0) {//if dead
+                    if(xPacman==228) 
                         xPacman=10;
                     else
                         xPacman+=1;
@@ -384,15 +407,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             }
             else if (direction==3) { //down
                 yPacman+=1;
-                if (yPacman>303)
-                    yPacman=17;
                 new_xtile = (xPacman-8)/8;
                 new_ytile = ((yPacman+4) - 16)/8;
                 if (map[new_ytile][new_xtile]==0) {
-                    if(yPacman==17)
-                        yPacman=303;
-                    else
-                        yPacman-=1;
+                    yPacman-=1;
                     if (prevDirection!=0)
                         direction=prevDirection;
                 }
@@ -424,24 +442,142 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     prevDirection=direction;
                 }
             }//end pac-man arrow key logic
+    
+            ////////////// BLINKY /////////////////////////////////////
+            int currentxBlinky = xBlinky; //pixel position
+            int currentyBlinky = yBlinky;
+            int current_xBtile = (xBlinky-8)/8; //find blinky's tile to check collisions and intersection behavior
+            int current_yBtile = (yBlinky - 16)/8;
+            int new_xBtile; //to check if intended tile is legal
+            int new_yBtile; 
             
+            if (ghostArray[0] == 1){ //if blinky is in chase mode 
+            //blinky goes left at the start of the game 
+            //if run into wall, or if next tile is dead space, then change directions 
+                if (Bdirection==1) { //up
+                    oppBDirection = 3; //down
+                    yBlinky -= 8; // add 8 because we care about the next tile 
+                }
+                else if (Bdirection==2) { //left
+                    oppBDirection = 4; //right
+                    xBlinky -= 8; // add 8 because we care about the next tile 
+                }
+                else if (Bdirection==3) { //down
+                    oppBDirection = 1; //up
+                    yBlinky += 8; // add 8 because we care about the next tile 
+                }
+                else if (Bdirection==4) { //right
+                    oppBDirection = 2; //left
+                    xBlinky += 8; // add 8 because we care about the next tile
+                }
+                new_xBtile = (xBlinky-8)/8; //solve for intended tile
+                new_yBtile = ((yBlinky-4) - 16)/8;
+                
+                //Assess intended tile, check if tiles in the three potentially allowed directions are legal
+                // only three potentially legal tiles bc we cannot reverse directions 
+                int ii;
+                int tilesum; //if greater than 1, then there are multiple legal tiles available
+                int nextnexttile [4]; //to check which of the three other directions are legal
+                 
+                for (ii=1; ii<=4; ii++){
+                    if(ii != oppBDirection){
+                        if (ii==1) { //up
+                            yBlinky -= 8; // add 8 because we care about the next tile 
+                        }
+                        else if (ii==2) { //left
+                            xBlinky -= 8; // add 8 because we care about the next tile 
+                        }
+                        else if (ii==3) { //down
+                            yBlinky += 8; // add 8 because we care about the next tile 
+                        }
+                        else if (ii==4) { //right
+                            xBlinky += 8; // add 8 because we care about the next tile
+                        }
+                        new_xBtile = (xBlinky-8)/8; //solve for one of the three NEXT intended tiles
+                        new_yBtile = ((yBlinky-4) - 16)/8;
+                        if(map[new_yBtile][new_xBtile] == 1){ //if the next intended tile is legal
+                            nextnexttile[ii] = 1; //then store a one in the array
+                            tilesum++;
+                        }
+                    } //end if != oppbdirection
+                } // end for loop for the four directions 
+                
+                //check if more than one legal tile available
+                //if at an intersection, then choose direction based on target tile 
+                if(tilesum >1){
+                    //mulitple legal tiles
+                    //blinky's target tile is pacmans current tile, no target tile variable
+                    /*current_xtile
+                    current_ytile
+
+                        fr[sample_number] = abs(fr[sample_number]); //>>8 bit shifting is a thing
+                        fi[sample_number] = abs(fi[sample_number]);
+                        // reuse fr to hold magnitude, find mag w alpha max beta min
+                        fr[sample_number] = max(fr[sample_number], fi[sample_number]) +
+                                (_Accum)(min(fr[sample_number], fi[sample_number])* zero_point_4);*/
+                } 
+                
+            } //end if chase mode 
             
+            ////////// CHECK FOR COLLISIONS ////////////////////////////////
+            // do this after tiles have been updated for all characters
+            // could use for OR operators and do this all at once but realllllly long if condition 
+            //probably safe to assume when xtile is same, ytile is also same but ??not sure 
             
-        }
-        tft_drawCircle(xPacman,yPacman,3,ILI9340_MAGENTA);              
-        tft_drawCircle(xBlinky,yBlinky,2,ILI9340_RED); //blinky
+            // WHEN LIVES ARE LOST
+            //all characters pause, pacman dies
+            // for death sequence, need to implement similar thing to slowing down rate of servo pan with counter and ifs
+            //pacman doesnt move until gui input again 
+            //ghosts are reset 
+            //timer for ghost modes is reset 
+            // need to handle game over sequence 
+            if(current_xtile == current_xBtile && current_xtile == current_xBtile){
+                lives -= 1; //lose a life rip
+                if(lives == 2){
+                    tft_fillCircle(46,290,5,ILI9340_WHITE); //draw over life
+                }
+                if(lives == 1){
+                    tft_fillCircle(35,290,5,ILI9340_WHITE); //draw over life
+                }
+                if(lives == 0){
+                    tft_fillCircle(24,290,5,ILI9340_WHITE); //draw over life
+                    //set a flag to trigger game over sequence
+                }
+            } // end check blinky collision
+            
+            /* COMMENT BACK IN ONCE current_Ptile ARE DEFINED
+             * THEN COPY AND PASTE FOR INKY AND CLYDE (<3)
+            if(current_xtile == current_xPtile && current_xtile == current_xPtile){
+                lives -= 1; //lose a life rip
+                if(lives == 2){
+                    tft_fillCircle(46,290,5,ILI9340_WHITE); //draw over life
+                }
+                if(lives == 1){
+                    tft_fillCircle(35,290,5,ILI9340_WHITE); //draw over life
+                }
+                if(lives == 0){
+                    tft_fillCircle(24,290,5,ILI9340_WHITE); //draw over life
+                    //set a flag to trigger game over sequence
+                }
+            } // end check Pinky collision */
+            
+        } //end of if isStart 
         
-        // 30 fps => frame time of 32 mSec
+        
+        // QUESTION: SHOULD ALL OF THIS BE WITHIN isStart IF ?? -KAT
+        tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+        tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); //erase blinky
+        tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
+        tft_fillCircle(xBlinky,yBlinky,2,ILI9340_GREEN); //plot new blinky
+        
+        // 30 fps => frame time of 32 mSec. This blurb checks that we're meeting that goal
         check_time = PT_GET_TIME() - begin_time; //checks if more than 32 msec has passed
-        if(check_time > 17)
+        if(check_time > 32){
             mPORTAClearBits(BIT_0); // turn off LED if below 30FPS
+            printf("rip");
+        }
         else{
             mPORTASetBits(BIT_0); // turn LED on IF we meet 30FPS 
-        }
-        
-        int i;
-        for(i = 0; i < 4; i++){
-            
         }
         
         PT_YIELD_TIME_msec(17 - check_time);   
@@ -497,7 +633,7 @@ static PT_THREAD (protothread_arrows(struct pt *pt))
             direction = arrow_id;
             //printf("%d",direction);
         }
-        //tft_drawCircle(280,200,5,ILI9340_MAGENTA);
+        //tft_fillCircle(280,200,5,ILI9340_MAGENTA);
         //sprintf(tft_str_buffer,"%d", direction); 
         //tft_printLine(4, 5, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,5);
         
@@ -669,20 +805,31 @@ void main(void) {
   
     /*draw map*/
     int draw_row = 0;
-    for(draw_row =0; draw_row < 36; draw_row++){
+    for(draw_row =0; draw_row < 36; draw_row++){ //28x36 tile grid
         int check_tile = 0;
         for(check_tile = 0; check_tile < 28; check_tile++){
-            if(map[draw_row][check_tile] == 0){
+            if(map[draw_row][check_tile] == 0){ //fill in legal space a different color from deadspace
                 tft_fillRect((short) (8 + check_tile*8), (short) (16 + draw_row*8), (short) 8, (short) 8, ILI9340_BLUE);
             }
-            if(dots[draw_row][check_tile] == 1)
+            if(dots[draw_row][check_tile] == 1) //draw small dots
                 tft_drawPixel((short)(12 + check_tile*8), (short) (20 + draw_row*8), ILI9340_WHITE);
-            else if(dots[draw_row][check_tile] == 2)
-                tft_drawCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
+            else if(dots[draw_row][check_tile] == 2) //draw four Big Dots
+                tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 3, ILI9340_WHITE);
         }
     }
-    sprintf(tft_str_buffer,"  Score: %d  ", score);
-    tft_printLine(18, 5, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    //initialize score counter
+    sprintf(tft_str_buffer,"Score"); 
+    tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    sprintf(tft_str_buffer,"%d", score); 
+    tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    
+    //initialize lives 
+    tft_fillCircle(24,290,5,ILI9340_YELLOW); //whenlives are lost, plot over them from R to L
+    tft_drawCircle(24,290,5,ILI9340_BLACK); //does nothing visually rip
+    tft_fillCircle(35,290,5,ILI9340_YELLOW); 
+    tft_drawCircle(35,290,5,ILI9340_BLACK); 
+    tft_fillCircle(46,290,5,ILI9340_YELLOW); 
+    tft_drawCircle(46,290,5,ILI9340_BLACK); 
   
   
   // === config threads ========================
