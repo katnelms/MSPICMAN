@@ -1,6 +1,10 @@
 /*
  * File:        Python control for ECE 4760 Final Project: Ms PIC-MAN
  *             
+ * 
+ * sprintf(tft_str_buffer,"%d", score); //preint new score
+                tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+ * 
  * Authors:     Melissa Alvarez, Grace Ding, Kat Nelms
  * Adapted from code written by Bruce Land
  * 
@@ -103,12 +107,12 @@ float flashCounter = 0; // to slow down animation speed of picman death
 int collisionFlag = 0; //set to high when a collision happens to pause characters
 short xPacman=120; //initial pacman position stored as x,y pixel coords on tft
 short yPacman=228;
-short xBlinky=120; //blinky starts just above pen, in scatter mode
+short xBlinky=121; //blinky starts just above pen, in scatter mode
 short yBlinky=132;
 char ghostArray[4]={2,0,0,0};//blinky,pinky,inky,clyde
                              //0->in pen, 1->chase, 2->scatter, 3->frightened
 int ghostCounters[3];//pinky,inky,clyde
-int prevState[4]; //store ghost state so that when they come out of frighten mode, they return to chase or scatter
+char prevState[4]; //store ghost state so that when they come out of frighten mode, they return to chase or scatter 
 
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -224,8 +228,7 @@ void __ISR(_TIMER_3_VECTOR, ipl2) Timer3Handler(void)
          
 }
 
-// second ISR, not for any particular purpose yet, just not sure if we need a
-//32 bit timer or not so left both in for now 
+// second ISR, not for any particular purpose yet
 void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
 	mT4ClearIntFlag(); // you MUST clear the ISR flag
    
@@ -340,10 +343,15 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
         begin_time = PT_GET_TIME();  // objective animation speed 60FPS
         
         ////////////PAC MAN ///////////////////////////////////
-        int currentxPacman = xPacman;
-        int currentyPacman = yPacman;
-        int current_xtile = (xPacman-8)/8; //we centered the maze on the TFT. subtract centering offset and divide by 8 to get tile
-        int current_ytile = (yPacman - 16)/8; 
+        static int currentxPacman;
+        static int currentyPacman;
+        static int current_xtile;
+        static int current_ytile;
+        
+        currentxPacman = xPacman;
+        currentyPacman = yPacman;
+        current_xtile = (xPacman-8)/8; //we centered the maze on the TFT. subtract centering offset and divide by 8 to get tile
+        current_ytile = (yPacman - 16)/8; 
         
         if (isStart==1){ //only animate if game has started
             //----- MUNCH THE DOTS ---------------------------------------------
@@ -460,7 +468,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int new_xBtile; //to check if intended tile is legal
             int new_yBtile; 
             
-            if (ghostArray[0] == 1){ //if blinky is in chase mode 
+            /* if (ghostArray[0] == 1){ //if blinky is in chase mode 
             //blinky goes left at the start of the game 
             //if run into wall, or if next tile is dead space, then change directions 
                 if (Bdirection==1) { //up
@@ -511,6 +519,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     } //end if != oppbdirection
                 } // end for loop for the four directions 
                 
+            /* THIS PAIR IS AT THE TOP OF THE BLINKY THREAD
+             
                 //check if more than one legal tile available
                 //if at an intersection, then choose direction based on target tile 
                 if(tilesum >1){
@@ -524,82 +534,89 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         // reuse fr to hold magnitude, find mag w alpha max beta min
                         fr[sample_number] = max(fr[sample_number], fi[sample_number]) +
                                 (_Accum)(min(fr[sample_number], fi[sample_number])* zero_point_4);*/
-                } 
+                //} 
                 
-            } //end if chase mode 
+            //} //end if chase mode 
             
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
             // do this after tiles have been updated for all characters
             // could use for OR operators and do this all at once but realllllly long if condition 
             // probably safe to assume when xtile is same, ytile is also same but ??not sure 
             
-            // WHEN LIVES ARE LOST
-            //all characters pause, pacman dies
-            // for death sequence, need to implement similar thing to slowing down rate of servo pan with counter and ifs
-            //pacman doesnt move until gui input again 
-            //ghosts are reset 
-            //timer for ghost modes is reset 
-            // need to handle game over sequence 
-            if(current_xtile == current_xBtile && current_xtile == current_xBtile){
+            if(current_xtile == current_xBtile && current_ytile == current_yBtile){
                 lives -= 1; //lose a life rip
-                // all characters pause and pacman dies
+                // all characters pause and picman dies
+                //sprintf(tft_str_buffer,"in the if oh no"); //print distress
+                //tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
                 collisionFlag = 1;
             } // end blinky collision check
-        
+           
+            // IF collision
+            // all characters pause, pacman dies
+            // for death sequence, need to implement similar thing to slowing down rate of servo pan with counter and ifs
+            // pacman doesnt move until gui input again 
+            // ghosts are reset 
+            // timer for ghost modes is reset 
+            // need to handle game over sequence
             if (collisionFlag == 1){   //if collision occurs, animate death and replot 
-            // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash
-                
-                flashCounter+=.01; //this is here to slow down the death animation
-                if ((flashCounter>=100) && (flashNum < 4) { //only blink if 
-                    if(blinkFlag == 0){ // plot over picman to blink
-                        blinkFlag = 1; //set flag to high for next time through the loop
+                //debugging 5/04 this if statement works 
+            // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
+               
+                while (flashNum < 4) { //flashNum initialized to zero
+                    PT_YIELD_TIME_msec(1000); //this is here to slow down the death animation
+                    if(flashFlag == 0){ // plot over picman to flash
+                        sprintf(tft_str_buffer,"%d",currentxPacman); //print success
+                        tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+                        tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+                        flashFlag = 1; //set flag to high for next time through the loop
+                        flashNum +=1;
                     }
-                    else if(blinkFlag == 1){ // replot picman to blink
-                        blinkFlag = 0; //set flag to 0 for next time through the loop
+                    else if(flashFlag == 1){ // replot picman to flash
+                        tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_RED); //erase pic-man
+                        flashFlag = 0; //set flag to 0 for next time through the loop
+                        flashNum +=1;
                     }
-                    flashCounter = 0; //reset counter to flash again
-                } // end if flashCounter > 100
-                else if(flashNum >=4){ //done flashing, replot characters and unpause 
-                    //move binky to pen 
-                    //move pinky to pen 
-                    //move inky to pen
-                    //move clyde to pen 
                     
-                    for (i=0;i<4;i++){
-                        ghostArray[i]=0;//set ghost state to "in pen"
-                    }
-                    flashNum = 0; //reset to zero for next collision
-                    collisionFlag = 0; //let character animate again
-                    chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
-                }
-            }//end if collisionFlag
+                } // end while
                 
-            } // end check blinky collision
-            
-            /* COMMENT BACK IN ONCE current_Ptile ARE DEFINED
-             * THEN COPY AND PASTE FOR INKY AND CLYDE (<3)
-            if(current_xtile == current_xPtile && current_xtile == current_xPtile){
-                lives -= 1; //lose a life rip
+                //done flashing, replot characters and unpause 
+                //replotting is done at the end of this thread, so here we just reset the coordinates to be plotted
+                xBlinky =120; //move blinky to pen 
+                yBlinky =132;
+                //move pinky to pen 
+                //move inky to pen
+                //move clyde to pen 
+
+                //set ghost state to "in pen"
+                int i;
+                for (i=0;i<4;i++){
+                    ghostArray[i]=0;
+                }
+                flashNum = 0; //reset to zero for next collision
+                collisionFlag = 0; //let characters animate again
+                chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
+
+                //update lives display
                 if(lives == 2){
-                    tft_fillCircle(46,290,5,ILI9340_WHITE); //draw over life
+                tft_fillCircle(46,290,5,ILI9340_BLUE); //draw over life
                 }
                 if(lives == 1){
-                    tft_fillCircle(35,290,5,ILI9340_WHITE); //draw over life
+                    tft_fillCircle(35,290,5,ILI9340_BLUE); //draw over life
                 }
                 if(lives == 0){
-                    tft_fillCircle(24,290,5,ILI9340_WHITE); //draw over life
+                    tft_fillCircle(24,290,5,ILI9340_BLUE); //draw over life
                     //set a flag to trigger game over sequence
                 }
-            } // end check Pinky collision */
+         
+            }//end if collisionFlag
             
+            if(collisionFlag == 0){ //if we didn't collide in this loop, animate normally
+                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+                tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
+                tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
+                tft_fillCircle(xBlinky,yBlinky,2,ILI9340_GREEN); //plot new blinky
+            }  
         } //end of if isStart 
-        
-        
-        // QUESTION: SHOULD ALL OF THIS BE WITHIN isStart IF ?? -KAT
-        tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
-        tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); //erase blinky
-        tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
-        tft_fillCircle(xBlinky,yBlinky,2,ILI9340_GREEN); //plot new blinky
         
         // 30 fps => frame time of 32 mSec. This blurb checks that we're meeting that goal
         check_time = PT_GET_TIME() - begin_time; //checks if more than 32 msec has passed
