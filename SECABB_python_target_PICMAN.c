@@ -97,6 +97,10 @@ int C_ytarget;
 
 int score;
 int lives = 3;
+int flashFlag = 0; // if collision: if high, plot picman, if low, plot background color
+int flashNum = 0; //keep track of how many times picman is flashed after collision,stop at 4x    
+float flashCounter = 0; // to slow down animation speed of picman death
+int collisionFlag = 0; //set to high when a collision happens to pause characters
 short xPacman=120; //initial pacman position stored as x,y pixel coords on tft
 short yPacman=228;
 short xBlinky=120; //blinky starts just above pen, in scatter mode
@@ -527,7 +531,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
             // do this after tiles have been updated for all characters
             // could use for OR operators and do this all at once but realllllly long if condition 
-            //probably safe to assume when xtile is same, ytile is also same but ??not sure 
+            // probably safe to assume when xtile is same, ytile is also same but ??not sure 
             
             // WHEN LIVES ARE LOST
             //all characters pause, pacman dies
@@ -538,16 +542,38 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // need to handle game over sequence 
             if(current_xtile == current_xBtile && current_xtile == current_xBtile){
                 lives -= 1; //lose a life rip
-                if(lives == 2){
-                    tft_fillCircle(46,290,5,ILI9340_WHITE); //draw over life
+                // all characters pause and pacman dies
+                collisionFlag = 1;
+            } // end blinky collision check
+        
+            if (collisionFlag == 1){   //if collision occurs, animate death and replot 
+            // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash
+                
+                flashCounter+=.01; //this is here to slow down the death animation
+                if ((flashCounter>=100) && (flashNum < 4) { //only blink if 
+                    if(blinkFlag == 0){ // plot over picman to blink
+                        blinkFlag = 1; //set flag to high for next time through the loop
+                    }
+                    else if(blinkFlag == 1){ // replot picman to blink
+                        blinkFlag = 0; //set flag to 0 for next time through the loop
+                    }
+                    flashCounter = 0; //reset counter to flash again
+                } // end if flashCounter > 100
+                else if(flashNum >=4){ //done flashing, replot characters and unpause 
+                    //move binky to pen 
+                    //move pinky to pen 
+                    //move inky to pen
+                    //move clyde to pen 
+                    
+                    for (i=0;i<4;i++){
+                        ghostArray[i]=0;//set ghost state to "in pen"
+                    }
+                    flashNum = 0; //reset to zero for next collision
+                    collisionFlag = 0; //let character animate again
+                    chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
                 }
-                if(lives == 1){
-                    tft_fillCircle(35,290,5,ILI9340_WHITE); //draw over life
-                }
-                if(lives == 0){
-                    tft_fillCircle(24,290,5,ILI9340_WHITE); //draw over life
-                    //set a flag to trigger game over sequence
-                }
+            }//end if collisionFlag
+                
             } // end check blinky collision
             
             /* COMMENT BACK IN ONCE current_Ptile ARE DEFINED
