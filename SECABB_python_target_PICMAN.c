@@ -40,6 +40,11 @@
 #include "tft_master.h"
 #include "tft_gfx.h"
 
+//test comment for grace :)
+//test comment for grace part 2 :)
+//test comment for alvin :)
+//test comment for alvin p 2 :)
+
 // TO DO LIST (MIN REQS) ================================================= 
 // (1) add the moving PIC-man character, WASD control, and enforce dead space
 // (2) initialize basic maze and see if its visible on the TFT
