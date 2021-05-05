@@ -315,7 +315,8 @@ static PT_THREAD (protothread_timer(struct pt *pt))
             if (frightTimer>6) { //frighten mode lasts 6s
                 for (i=0;i<4;i++){
                     if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
-                        ghostArray[i]=prevState;//remember to save prev state and change here, ie return to scatter or chase from frighten
+                        //DEAL WITH THIS LATER
+                        //ghostArray[i]=prevState;//remember to save prev state and change here, ie return to scatter or chase from frighten
                     }
                 }
                 frightTimer=0; //reset frighten timer 
@@ -468,75 +469,87 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int new_xBtile; //to check if intended tile is legal
             int new_yBtile; 
             
-            /*
-            KAT @GRACE: 5/04 COMMENTED THIS OUT TO DEBUG OTHER STUFF
-             * commented section ends line 539 but theres no * /, sth weird going on with comments in between
+            int xBlinkyNext=xBlinky;
+            int yBlinkyNext=yBlinky;
+            
+            int prev_Bdirection = 1;
+            
             if (ghostArray[0] == 1){ //if blinky is in chase mode 
             //blinky goes left at the start of the game 
             //if run into wall, or if next tile is dead space, then change directions 
                 if (Bdirection==1) { //up
+                    yBlinky-=1;
                     oppBDirection = 3; //down
-                    yBlinky -= 8; // add 8 because we care about the next tile 
+                    yBlinkyNext -= 8; // add 8 because we care about the next tile 
+                    if(prev_Bdirection == 2 || prev_Bdirection == 4){
+                        xBlinky=current_xBtile*8+8+4;
+                    }
                 }
                 else if (Bdirection==2) { //left
+                    xBlinky-=1;
                     oppBDirection = 4; //right
-                    xBlinky -= 8; // add 8 because we care about the next tile 
+                    xBlinkyNext -= 8; // add 8 because we care about the next tile 
+                    if (prev_Bdirection==1 || prev_Bdirection==3){//check if turned from left/right
+                        yBlinky=current_yBtile*8+16+4;
+                    }
                 }
                 else if (Bdirection==3) { //down
+                    yBlinky+=1;
                     oppBDirection = 1; //up
-                    yBlinky += 8; // add 8 because we care about the next tile 
+                    yBlinkyNext += 8; // add 8 because we care about the next tile 
+                    if (prev_Bdirection==2 || prev_Bdirection==4){//check if turned from left/right
+                        xBlinky=current_xBtile*8+8+4;
+                    }
                 }
                 else if (Bdirection==4) { //right
+                    xBlinky+=1;
                     oppBDirection = 2; //left
-                    xBlinky += 8; // add 8 because we care about the next tile
+                    xBlinkyNext += 8; // add 8 because we care about the next tile
+                    if (prev_Bdirection==1 || prev_Bdirection==3){//check if turned from left/right
+                        yBlinky=current_yBtile*8+16+4;
+                    }
                 }
-                new_xBtile = (xBlinky-8)/8; //solve for intended tile
-                new_yBtile = ((yBlinky-4) - 16)/8;
+                new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
+                new_yBtile = ((yBlinkyNext-4) - 16)/8;
                 
                 //Assess intended tile, check if tiles in the three potentially allowed directions are legal
                 // only three potentially legal tiles bc we cannot reverse directions 
                 int ii;
                 int tilesum; //if greater than 1, then there are multiple legal tiles available
-                int nextnexttile [4]; //to check which of the three other directions are legal
-                 
+                float nextnexttileDist [4]; //to check which of the three other directions are legal
+                float shortestDist=1000;
                 for (ii=1; ii<=4; ii++){
+                    int xBlinkyNextNext=xBlinkyNext;
+                    int yBlinkyNextNext=yBlinkyNext;
                     if(ii != oppBDirection){
                         if (ii==1) { //up
-                            yBlinky -= 8; // add 8 because we care about the next tile 
+                            yBlinkyNextNext -= 8; // add 8 because we care about the next tile 
                         }
                         else if (ii==2) { //left
-                            xBlinky -= 8; // add 8 because we care about the next tile 
+                            xBlinkyNextNext -= 8; // add 8 because we care about the next tile 
                         }
                         else if (ii==3) { //down
-                            yBlinky += 8; // add 8 because we care about the next tile 
+                            yBlinkyNextNext += 8; // add 8 because we care about the next tile 
                         }
                         else if (ii==4) { //right
-                            xBlinky += 8; // add 8 because we care about the next tile
+                            xBlinkyNextNext += 8; // add 8 because we care about the next tile
                         }
-                        new_xBtile = (xBlinky-8)/8; //solve for one of the three NEXT intended tiles
-                        new_yBtile = ((yBlinky-4) - 16)/8;
+                        new_xBtile = (xBlinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
+                        new_yBtile = ((yBlinkyNextNext-4) - 16)/8;
                         if(map[new_yBtile][new_xBtile] == 1){ //if the next intended tile is legal
-                            nextnexttile[ii] = 1; //then store a one in the array
-                            tilesum++;
+                            int x_dist = abs(xPacman - xBlinkyNextNext); //calculate dist to target
+                            int y_dist = abs(yPacman - yBlinkyNextNext);
+                            float dist = max(x_dist, y_dist) + min(x_dist, y_dist)*.4;
+                            if (dist<shortestDist) { //check which dir is shortest
+                                shortestDist=dist;
+                                prev_Bdirection  = Bdirection;
+                                Bdirection=ii; //save direction
+                            }
                         }
                     } //end if != oppbdirection
                 } // end for loop for the four directions 
              
-                //check if more than one legal tile available
-                //if at an intersection, then choose direction based on target tile 
-                if(tilesum >1){
-                    //mulitple legal tiles
-                    //blinky's target tile is pacmans current tile, no target tile variable
-                    current_xtile
-                    current_ytile
-
-                        fr[sample_number] = abs(fr[sample_number]); //>>8 bit shifting is a thing
-                        fi[sample_number] = abs(fi[sample_number]);
-                        // reuse fr to hold magnitude, find mag w alpha max beta min
-                        fr[sample_number] = max(fr[sample_number], fi[sample_number]) +
-                                (_Accum)(min(fr[sample_number], fi[sample_number])* zero_point_4);*/
-                // }  
-           // } //end if chase mode 
+            } //end if chase mode 
            
             
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
