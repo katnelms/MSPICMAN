@@ -574,7 +574,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             if (collisionFlag == 1){   //if collision occurs, animate death and replot   
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
                
-                while (flashNum < 4) { //flashNum initialized to zero
+                while (flashNum < 8) { //flashNum initialized to zero
                     PT_YIELD_TIME_msec(500); //this is here to slow down the death animation
                     if(flashFlag == 0){ // plot over picman to flash
                      sprintf(tft_str_buffer,"%d",currentxPacman); //print success
