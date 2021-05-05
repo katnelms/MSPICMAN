@@ -553,27 +553,25 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             } // end blinky collision check
            
             // IF collision
-            // all characters pause, pacman dies
-            // for death sequence, need to implement similar thing to slowing down rate of servo pan with counter and ifs
-            // pacman doesnt move until gui input again 
+            // all characters pause, picman dies (flashing)
+            // picman doesnt move until gui input again 
             // ghosts are reset 
             // timer for ghost modes is reset 
             // need to handle game over sequence
-            if (collisionFlag == 1){   //if collision occurs, animate death and replot 
-                //debugging 5/04 this if statement works 
+            if (collisionFlag == 1){   //if collision occurs, animate death and replot   
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
                
                 while (flashNum < 4) { //flashNum initialized to zero
                     PT_YIELD_TIME_msec(500); //this is here to slow down the death animation
                     if(flashFlag == 0){ // plot over picman to flash
-                        sprintf(tft_str_buffer,"%d",currentxPacman); //print success
-                        tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+                     sprintf(tft_str_buffer,"%d",currentxPacman); //print success
+                     tft_printLine(15, 2, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
                         tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                         flashFlag = 1; //set flag to high for next time through the loop
                         flashNum +=1;
                     }
                     else if(flashFlag == 1){ // replot picman to flash
-                        tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_RED); //erase pic-man
+                        tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_YELLOW); //erase pic-man
                         flashFlag = 0; //set flag to 0 for next time through the loop
                         flashNum +=1;
                     }
@@ -582,7 +580,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 
                 //done flashing, replot characters and unpause 
                 //replotting is done at the end of this thread, so here we just reset the coordinates to be plotted
-                xBlinky =120; //move blinky to pen 
+                direction = 5; //some number that's not wasd so picman stops moving 
+                xPacman=120;   //initial pacman position 
+                yPacman=228;
+                xBlinky =120;  //move blinky to pen 
                 yBlinky =132;
                 //move pinky to pen 
                 //move inky to pen
@@ -615,7 +616,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                 tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
                 tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
-                tft_fillCircle(xBlinky,yBlinky,2,ILI9340_GREEN); //plot new blinky
+                tft_fillCircle(xBlinky,yBlinky,2,ILI9340_RED); //plot new blinky
             }  
         } //end of if isStart 
         
