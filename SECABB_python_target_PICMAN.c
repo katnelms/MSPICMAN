@@ -385,7 +385,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int new_xtile; 
             int new_ytile;
             /*move in direction*/
-            if (direction==1) { //up
+            if ((direction==1) && (collisionFlag != 1)) { //up, don't update position if in lost life sequence
                 yPacman-=1; //positive y is defined down for tft 
                 new_xtile = (xPacman-8)/8; //this is the tile she wants to move to but we need to check if its legal first
                 new_ytile = ((yPacman-4) - 16)/8;
@@ -401,7 +401,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     prevDirection=direction; //set previous direction now because direction is updaed when GUI is changed
                 }
             }    
-            else if (direction==2) { //left
+            else if ((direction==2) && (collisionFlag != 1)) { //left
                 xPacman-=1;
                 if (xPacman<10) //wrap, this only happens at the "hallway"
                     xPacman=228;
@@ -422,7 +422,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     prevDirection=direction;
                 }
             }
-            else if (direction==3) { //down
+            else if ((direction==3)&&(collisionFlag != 1)) { //down
                 yPacman+=1;
                 new_xtile = (xPacman-8)/8;
                 new_ytile = ((yPacman+4) - 16)/8;
@@ -438,10 +438,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     prevDirection=direction;
                 }
             }
-            else if (direction==4) { //right
+            else if ((direction==4) && (collisionFlag != 1)) { //right
                 xPacman+=1;
                 if (xPacman>227) //wrap
-                    xPacman=10;
+                    xPacman=10; 
                 new_xtile = ((xPacman+4)-8)/8;
                 new_ytile = (yPacman - 16)/8;
                 if (map[new_ytile][new_xtile]==0) {
@@ -468,7 +468,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int new_xBtile; //to check if intended tile is legal
             int new_yBtile; 
             
-            /* if (ghostArray[0] == 1){ //if blinky is in chase mode 
+            /*
+            KAT @GRACE: 5/04 COMMENTED THIS OUT TO DEBUG OTHER STUFF
+             * commented section ends line 539 but theres no * /, sth weird going on with comments in between
+            if (ghostArray[0] == 1){ //if blinky is in chase mode 
             //blinky goes left at the start of the game 
             //if run into wall, or if next tile is dead space, then change directions 
                 if (Bdirection==1) { //up
@@ -518,15 +521,13 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         }
                     } //end if != oppbdirection
                 } // end for loop for the four directions 
-                
-            /* THIS PAIR IS AT THE TOP OF THE BLINKY THREAD
              
                 //check if more than one legal tile available
                 //if at an intersection, then choose direction based on target tile 
                 if(tilesum >1){
                     //mulitple legal tiles
                     //blinky's target tile is pacmans current tile, no target tile variable
-                    /*current_xtile
+                    current_xtile
                     current_ytile
 
                         fr[sample_number] = abs(fr[sample_number]); //>>8 bit shifting is a thing
@@ -534,9 +535,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         // reuse fr to hold magnitude, find mag w alpha max beta min
                         fr[sample_number] = max(fr[sample_number], fi[sample_number]) +
                                 (_Accum)(min(fr[sample_number], fi[sample_number])* zero_point_4);*/
-                //} 
-                
-            //} //end if chase mode 
+                // }  
+           // } //end if chase mode 
+           
             
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
             // do this after tiles have been updated for all characters
@@ -563,7 +564,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
                
                 while (flashNum < 4) { //flashNum initialized to zero
-                    PT_YIELD_TIME_msec(1000); //this is here to slow down the death animation
+                    PT_YIELD_TIME_msec(500); //this is here to slow down the death animation
                     if(flashFlag == 0){ // plot over picman to flash
                         sprintf(tft_str_buffer,"%d",currentxPacman); //print success
                         tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
