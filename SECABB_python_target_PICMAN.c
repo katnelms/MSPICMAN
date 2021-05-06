@@ -276,8 +276,18 @@ void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
     }// end if resetMap
     
     if (resetGhosts == 1){
+        tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //remove the ghosts              
+        tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); 
+        tft_fillCircle(xPinky,yPinky,2,ILI9340_BLACK);
+        tft_fillCircle(xInky,yInky,2,ILI9340_BLACK);
+        tft_fillCircle(xClyde,yClyde,2,ILI9340_BLACK); 
+        
+        for (i=0;i<4;i++){ //set ghost state to "in pen"
+            ghostArray[i]=0;
+        }
+    
         xBlinky = 121; //blinky starts just above pen, in scatter mode
-        yBlinky = 132;
+        yBlinky = 132; //other ghosts are in pen
         xPinky = 121;
         yPinky = 156;
         xInky = 105;
@@ -665,12 +675,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 yPacman=228;
                 resetGhosts = 1; 
 
-                //set ghost state to "in pen"
-                int i;
-                for (i=0;i<4;i++){
-                    ghostArray[i]=0;
-                }
-               
                 //update lives display
                 if(lives == 2){
                 tft_fillCircle(46,290,5,ILI9340_BLUE); //draw over life
