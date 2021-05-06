@@ -115,6 +115,7 @@ int C_xtarget;
 int C_ytarget;
 
 //lost life, game over, new level etc
+int i; int ii; int jj; //because for loops r everywhere
 int score;
 int lives = 3;
 int flashFlag = 0; // if collision: if high, plot picman, if low, plot background color
@@ -124,6 +125,7 @@ int collisionFlag = 0; //set to high when a collision happens to pause character
 int resetMap = 0; //set to high when the game is over, level is cleared, etc to reset map
 int resetGhosts = 0; //more versatile than reset map bc this is set high every time a life is lost
 
+// ogdots array exists to reset dots when the game is over but PIC not reset
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -162,8 +164,6 @@ const char map[36][28]={ //hard code dead space and legal spaceTILES oof
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
     }; //ew 
-
-
 char dots[36][28] = { //hard code which legal space tiles have dots 
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -202,6 +202,45 @@ char dots[36][28] = { //hard code which legal space tiles have dots
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
+char ogdots[36][28] = { //hard code which legal space tiles have dots 
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+{0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0},
+{0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0},
+{0,2,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,2,0},  
+{0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0}, 
+{0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0},
+{0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0},
+{0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0},
+{0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0},
+{0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0},
+{0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0},
+{0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0},
+{0,2,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,2,0}, 
+{0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0},
+{0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0},
+{0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1,0},
+{0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0},
+{0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0},
+{0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0},
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+}; 
+
 
 ////////////////////////////////////
 // === print a line on TFT =====================================================
@@ -241,7 +280,13 @@ void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
 	mT4ClearIntFlag(); // you MUST clear the ISR flag
    
     if (resetMap == 1){
-        //reset map
+        //SIGH reset dots array
+        for(ii =0; ii < 36; ii++){ //28x36 tile grid
+            for(jj = 0; jj < 28; jj++)
+                dots[ii][jj] = ogdots[ii][jj]; //fill in legal space a different color from deadspace
+        }
+        
+        //then reset map
         tft_fillScreen(ILI9340_BLACK);
         int draw_row = 0;
         for(draw_row =0; draw_row < 36; draw_row++){ //28x36 tile grid
@@ -282,6 +327,7 @@ void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
         tft_fillCircle(xInky,yInky,2,ILI9340_BLACK);
         tft_fillCircle(xClyde,yClyde,2,ILI9340_BLACK); 
         
+        int i;
         for (i=0;i<4;i++){ //set ghost state to "in pen"
             ghostArray[i]=0;
         }
@@ -646,9 +692,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // IF collision
             // all characters pause, picman dies (flashing)
             // picman doesnt move until gui input again 
-            // ghosts are reset 
-            // timer for ghost modes is reset 
-            // need to handle game over sequence
+            // ghosts are reset, timer for ghost modes is reset 
             if (collisionFlag == 1){   //if collision occurs, animate death and replot   
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
                
@@ -695,6 +739,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     isStart = 0; 
                     resetMap = 1;
                     score = 0; 
+                    
                 }//end if lives = 0
          
                 flashNum = 0; //reset to zero for next collision
