@@ -118,6 +118,9 @@
 #define ILI9340_MAGENTA 0xF81F
 #define ILI9340_YELLOW  0xFFE0
 #define ILI9340_WHITE   0xFFFF
+#define ILI9340_ORANGE  0xFFB852
+#define ILI9340_PINK    0xFFB8FF
+
 
 #define PBCLK 40000000 // peripheral bus clock
 #define SPI_freq    20000000

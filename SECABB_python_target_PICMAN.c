@@ -66,6 +66,7 @@
 // pic is 240 pixels x 320 pixels, scale is appropriate
 // pg 162 of pic32 manual, timer period is an int  
 int TIMEOUT = 800000;// For ISR, but only if we get to adding music
+int TIMEOUT4 = 40000000/40000; // = 1000 msec so the 16bit isr triggered 1 per sec
 
 // The scatter/chase timer gets reset whenever a life is lost or a level is completed,
 // and it is paused when frighten mode is triggered
@@ -79,6 +80,20 @@ int begin_time, check_time; //begin used in timer thread, check is to turn on LE
 
 // -------- character animation stuff ---------------------------------------
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
+short xPacman =120; //initial pacman position stored as x,y pixel coords on tft
+short yPacman =228;
+short xBlinky = 121; //blinky starts just above pen, in scatter mode
+short yBlinky = 132;
+short xPinky = 121;
+short yPinky = 156;
+short xInky = 105;
+short yInky = 156;
+short xClyde = 137;
+short yClyde = 156;
+char ghostArray[4]={2,0,0,0};//blinky,pinky,inky,clyde
+                             //0->in pen, 1->chase, 2->scatter, 3->frightened
+int ghostCounters[3];//pinky,inky,clyde
+char prevState[4]; //store ghost state so that when they come out of frighten mode, they return to chase or scatter 
 int Bdirection = 2; //blinky's current direction. ghosts all initially move initially left 
 int Pdirection = 2; //pinky's current direction
 int Idirection = 2; // inky's current direction
@@ -99,20 +114,15 @@ int I_ytarget;
 int C_xtarget;
 int C_ytarget;
 
+//lost life, game over, new level etc
 int score;
 int lives = 3;
 int flashFlag = 0; // if collision: if high, plot picman, if low, plot background color
 int flashNum = 0; //keep track of how many times picman is flashed after collision,stop at 4x    
 float flashCounter = 0; // to slow down animation speed of picman death
 int collisionFlag = 0; //set to high when a collision happens to pause characters
-short xPacman=120; //initial pacman position stored as x,y pixel coords on tft
-short yPacman=228;
-short xBlinky=121; //blinky starts just above pen, in scatter mode
-short yBlinky=132;
-char ghostArray[4]={2,0,0,0};//blinky,pinky,inky,clyde
-                             //0->in pen, 1->chase, 2->scatter, 3->frightened
-int ghostCounters[3];//pinky,inky,clyde
-char prevState[4]; //store ghost state so that when they come out of frighten mode, they return to chase or scatter 
+int resetMap = 0; //set to high when the game is over, level is cleared, etc to reset map
+int resetGhosts = 0; //more versatile than reset map bc this is set high every time a life is lost
 
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -220,19 +230,63 @@ void tft_printLine(int line_number, int indent, char* print_buffer, short text_c
 // USE DAC TO OUTPUT GAME SOUND EFFECTS
 // NOTE left timer 2 and 3 are chained into one 32 bit timer
 // bits 0-15 are timer 2, 16-31 timer 3
-void __ISR(_TIMER_3_VECTOR, ipl2) Timer3Handler(void)
-{
+void __ISR(_TIMER_3_VECTOR, ipl2) Timer3Handler(void){
     // you MUST clear the ISR flag
     mT3ClearIntFlag(); 
-   
-         
+        
 }
 
 // second ISR, not for any particular purpose yet
 void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
 	mT4ClearIntFlag(); // you MUST clear the ISR flag
    
-}
+    if (resetMap == 1){
+        //reset map
+        tft_fillScreen(ILI9340_BLACK);
+        int draw_row = 0;
+        for(draw_row =0; draw_row < 36; draw_row++){ //28x36 tile grid
+            int check_tile = 0;
+            for(check_tile = 0; check_tile < 28; check_tile++){
+                if(map[draw_row][check_tile] == 0){ //fill in legal space a different color from deadspace
+                    tft_fillRect((short) (8 + check_tile*8), (short) (16 + draw_row*8), (short) 8, (short) 8, ILI9340_BLUE);
+                }
+                if(dots[draw_row][check_tile] == 1) //draw small dots
+                    tft_drawPixel((short)(12 + check_tile*8), (short) (20 + draw_row*8), ILI9340_WHITE);
+                else if(dots[draw_row][check_tile] == 2) //draw four Big Dots
+                    tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 3, ILI9340_WHITE);
+               }
+        }
+        //initialize score counter
+        sprintf(tft_str_buffer,"Score"); 
+        tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+        sprintf(tft_str_buffer,"%d", score); 
+        tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    
+        //initialize lives 
+        tft_fillCircle(24,290,5,ILI9340_YELLOW); //whenlives are lost, plot over them from R to L
+        tft_drawCircle(24,290,5,ILI9340_BLACK); //does nothing visually rip
+        tft_fillCircle(35,290,5,ILI9340_YELLOW); 
+        tft_drawCircle(35,290,5,ILI9340_BLACK); 
+        tft_fillCircle(46,290,5,ILI9340_YELLOW); 
+        tft_drawCircle(46,290,5,ILI9340_BLACK); 
+        
+        resetMap = 0;
+        if(isStart ==1) //only reset ghosts if game not over
+            resetGhosts = 1;
+    }// end if resetMap
+    
+    if (resetGhosts == 1){
+        xBlinky = 121; //blinky starts just above pen, in scatter mode
+        yBlinky = 132;
+        xPinky = 121;
+        yPinky = 156;
+        xInky = 105;
+        yInky = 156;
+        xClyde = 137;
+        yClyde = 156;
+        resetGhosts = 0;
+    }
+}// end 16bit ISR
 
 // === Timer Thread: CONTROLS GHOST MODES ======================================
 // update a 1 second tick counter
@@ -551,6 +605,20 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
              
             } //end if chase mode 
            
+            ////////// PINKY &CO ////////////////////////////////////////////////
+            // though tbh i think all of the local var should be moved to the top of the animation thread
+            int currentxPinky = xPinky; //pixel position
+            int currentyPinky = yPinky;
+            int currentxInky = xInky; //pixel position
+            int currentyInky = yInky;
+            int currentxClyde = xClyde; //pixel position
+            int currentyClyde = yClyde;
+            int current_xPtile = (xPinky-8)/8; 
+            int current_yPtile = (yPinky - 16)/8;
+            int current_xItile = (xInky-8)/8; 
+            int current_yItile = (yInky - 16)/8;
+            int current_xCtile = (xClyde-8)/8; 
+            int current_yCtile = (yClyde - 16)/8;
             
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
             // do this after tiles have been updated for all characters
@@ -575,7 +643,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
                
                 while (flashNum < 8) { //flashNum initialized to zero
-                    PT_YIELD_TIME_msec(500); //this is here to slow down the death animation
+                    PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
                     if(flashFlag == 0){ // plot over picman to flash
                      sprintf(tft_str_buffer,"%d",currentxPacman); //print success
                      tft_printLine(15, 2, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
@@ -587,8 +655,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_YELLOW); //erase pic-man
                         flashFlag = 0; //set flag to 0 for next time through the loop
                         flashNum +=1;
-                    }
-                    
+                    } 
                 } // end while
                 
                 //done flashing, replot characters and unpause 
@@ -596,21 +663,14 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 direction = 5; //some number that's not wasd so picman stops moving 
                 xPacman=120;   //initial pacman position 
                 yPacman=228;
-                xBlinky =120;  //move blinky to pen 
-                yBlinky =132;
-                //move pinky to pen 
-                //move inky to pen
-                //move clyde to pen 
+                resetGhosts = 1; 
 
                 //set ghost state to "in pen"
                 int i;
                 for (i=0;i<4;i++){
                     ghostArray[i]=0;
                 }
-                flashNum = 0; //reset to zero for next collision
-                collisionFlag = 0; //let characters animate again
-                chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
-
+               
                 //update lives display
                 if(lives == 2){
                 tft_fillCircle(46,290,5,ILI9340_BLUE); //draw over life
@@ -620,16 +680,36 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 }
                 if(lives == 0){
                     tft_fillCircle(24,290,5,ILI9340_BLUE); //draw over life
+                    tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+                    
+                   //PRINT GAME OVER
+                    sprintf(tft_str_buffer," GAME OVER"); 
+                    tft_printLine(3, 0, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
+                    PT_YIELD_TIME_msec(1000); 
+                   
                     //set a flag to trigger game over sequence
-                }
+                    isStart = 0; 
+                    resetMap = 1;
+                    score = 0; 
+                }//end if lives = 0
          
+                flashNum = 0; //reset to zero for next collision
+                collisionFlag = 0; //let characters animate again
+                chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
             }//end if collisionFlag
             
             if(collisionFlag == 0){ //if we didn't collide in this loop, animate normally
                 tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                 tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
+                tft_fillCircle(currentxPinky,currentyPinky,2,ILI9340_BLACK); //erase pinky
+                tft_fillCircle(currentxInky,currentyInky,2,ILI9340_BLACK); //erase inky
+                tft_fillCircle(currentxClyde,currentyClyde,2,ILI9340_BLACK); //erase clyde rip loml
+                
                 tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
                 tft_fillCircle(xBlinky,yBlinky,2,ILI9340_RED); //plot new blinky
+                tft_fillCircle(xPinky,yPinky,2,ILI9340_PINK); //plot new pinky
+                tft_fillCircle(xInky,yInky,2,ILI9340_CYAN); //plot new inky
+                tft_fillCircle(xClyde,yClyde,2,ILI9340_ORANGE); //plot new clyde! loml is back
             }  
         } //end of if isStart 
         
@@ -774,38 +854,7 @@ static PT_THREAD (protothread_serial(struct pt *pt))
             button_value = PT_term_buffer[3] - '0';
             //printf("%s\n",PT_term_buffer);
         }
-        /*
-        // toggle switch
-        if (PT_term_buffer[0]=='t'){
-            // signal the button thread
-            new_toggle = 1;
-            // subtracting '0' converts ascii to binary for 1 character
-            toggle_id = (PT_term_buffer[1] - '0')*10 + (PT_term_buffer[2] - '0');
-            toggle_value = PT_term_buffer[3] - '0';
-        }
         
-        // slider
-        if (PT_term_buffer[0]=='s'){
-            sscanf(PT_term_buffer, "%c %d %f", &junk, &slider_id, &slider_value);
-            new_slider = 1;
-        }
-        
-        // listbox
-        if (PT_term_buffer[0]=='l'){
-            new_list = 1;
-            list_id = PT_term_buffer[2] - '0' ;
-            list_value = PT_term_buffer[3] - '0';
-            //printf("%d %d", list_id, list_value);
-        }
-        
-        // radio group
-        if (PT_term_buffer[0]=='r'){
-            new_radio = 1;
-            radio_group_id = PT_term_buffer[2] - '0' ;
-            radio_member_id = PT_term_buffer[3] - '0';
-            //printf("%d %d", radio_group_id, radio_member_id);
-        }
-        */
         // string from python input line
         if (PT_term_buffer[0]=='$'){
             // signal parsing thread
@@ -835,9 +884,7 @@ void main(void) {
     ConfigIntTimer23(T23_INT_ON | T23_INT_PRIOR_2);
     mT3ClearIntFlag(); // and clear the interrupt flag
     
- ///// 16 Bit timer interrupt ///////////////////////////////////// 
-    //timeout is 40kHz, leftover from lab 4, adjust accordinly
-    int TIMEOUT4 = 40000000/40000; 
+ ///// 16 Bit timer interrupt /////////////////////////////////////  
     OpenTimer4(T4_ON | T4_SOURCE_INT | T4_PS_1_1 , TIMEOUT4);
     
     ConfigIntTimer4(T4_INT_ON | T4_INT_PRIOR_2);
