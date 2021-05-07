@@ -77,6 +77,7 @@ int chaseTimer;  //switch to scatter mode once chase timer is above 20s, 4x per 
 int frightTimer; //triggered when PICMAN eats Big Dots
 char isStart;    //flag set once start button pressed on Python GUI
 int begin_time, check_time; //begin used in timer thread, check is to turn on LED as long as we meet animation requirement
+int global_dotCounter, PdotCounter, IdotCounter, CdotCounter;
 
 // -------- character animation stuff ---------------------------------------
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
@@ -115,6 +116,11 @@ int I_xtarget;
 int I_ytarget;
 int C_xtarget;
 int C_ytarget;
+
+int Blinky_Color = ILI9340_RED;
+int Pinky_Color = ILI9340_PINK;
+int Inky_Color = ILI9340_CYAN;
+int Clyde_Color = ILI9340_ORANGE;
 
 //lost life, game over, new level etc
 int i; int ii; int jj; //because for loops r everywhere
@@ -428,9 +434,14 @@ static PT_THREAD (protothread_timer(struct pt *pt))
                 for (i=0;i<4;i++){
                     if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
                         //DEAL WITH THIS LATER
-                        //ghostArray[i]=prevState;//remember to save prev state and change here, ie return to scatter or chase from frighten
+                        ghostArray[i]=prevState[i];//remember to save prev state and change here, ie return to scatter or chase from frighten
                     }
                 }
+                Blinky_Color = ILI9340_RED;
+                Pinky_Color = ILI9340_PINK;
+                Inky_Color = ILI9340_CYAN;
+                Clyde_Color = ILI9340_ORANGE;
+                
                 frightTimer=0; //reset frighten timer 
             }
         }
@@ -470,8 +481,22 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             //----- MUNCH THE DOTS ---------------------------------------------
             if(dots[current_ytile][current_xtile]==1){ //if pacman passes through a new dot
                 score+=10; //then increase points
+                if(lives == 3){ //if 1 life lost, switch to global dot counter
+                    if(PdotCounter < 1){ //dot counter limits for each ghost - blinkys is zero
+                        PdotCounter++;
+                    }
+                    else if(IdotCounter < 31){
+                        IdotCounter++;
+                    }
+                    else if(CdotCounter < 61){
+                        CdotCounter++;
+                    }
+                }
+                else{
+                    global_dotCounter++;
+                }
                 dots[current_ytile][current_xtile]=0; //note that the dot is gone by updating array
-                sprintf(tft_str_buffer,"%d", score); //preint new score
+                sprintf(tft_str_buffer,"%d", score); //print new score
                 tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);        
             }
             else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
@@ -484,6 +509,12 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         ghostArray[i]=3; //doin me a frighten 
                     }
                 }
+                
+                Blinky_Color = ILI9340_BLUE;
+                Pinky_Color = ILI9340_BLUE;
+                Inky_Color = ILI9340_BLUE;
+                Clyde_Color = ILI9340_BLUE;
+               
                 //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
                 sprintf(tft_str_buffer,"%d", score); //preint new score
@@ -586,10 +617,15 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int currentyBlinky = yBlinky;
             int currentxPinky = xPinky;
             int currentyPinky = yPinky;
+            int currentxInky = xInky;
+            int currentyInky = yInky;
+            
             int current_xBtile = (xBlinky-8)/8; //find blinky's tile to check collisions and intersection behavior
             int current_yBtile = (yBlinky - 16)/8;
             int current_xPtile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
             int current_yPtile = (yPinky - 16)/8;
+            int current_xItile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
+            int current_yItile = (yPinky - 16)/8;
             
             int new_xBtile; //to check if intended tile is legal
             int new_yBtile; 
@@ -684,6 +720,16 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     Bdirection=tempBDirection;
                 } //end if not same tile
                 
+                if(PdotCounter == 1 || (lives < 3 && global_dotCounter == 7)){
+                    xPinky = 120; //move pinky above pen when counter limit is reached
+                    yPinky = 132; 
+                   
+                    current_xPtile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
+                    current_yPtile = (yPinky - 16)/8;
+                    PdotCounter = 2;
+                }  
+                
+                
                 /******PINKY********/
                 if (Pdirection==1) { //up
                     yPinky-=1;
@@ -719,7 +765,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 }
                 int next_xPtile = (xPinky-8)/8; //find blinky's tile to check collisions and intersection behavior
                 int next_yPtile = (yPinky - 16)/8;
-                
+
                 //only calculate next tile if we havent yet
                 if (next_xPtile!=current_xPtile || next_yPtile!=current_yPtile){
                     //new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
@@ -765,20 +811,44 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     Pdirection=tempPDirection;
                 } //end if not same tile
             } //end if chase mode 
-            
+
            
+            ///////INKY///////
+            /*
+            if(IdotCounter == 31 || (lives < 3 && global_dotCounter == 17)){
+                    xInky = 121; //move pinky above pen when counter limit is reached
+                    yInky = 132; 
+                   
+                    current_xItile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
+                    current_yItile = (yPinky - 16)/8;
+                    IdotCounter = 32;
+            }  
+            
+            ////////CLYDE/////// <3 
+            if(CdotCounter == 61 || (lives < 3 && global_dotCounter == 32)){
+                    xClyde = 121; //move pinky above pen when counter limit is reached
+                    yClyde = 132; 
+                   
+                    current_xCtile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
+                    current_yCtile = (yPinky - 16)/8;
+                    CdotCounter = 32;
+            }  
+            
+          
+            
+             */ 
             ////////// PINKY &CO ////////////////////////////////////////////////
             // though tbh i think all of the local var should be moved to the top of the animation thread
             //int currentxPinky = xPinky; //pixel position
             //int currentyPinky = yPinky;
-            int currentxInky = xInky; //pixel position
-            int currentyInky = yInky;
+            currentxInky = xInky; //pixel position
+            currentyInky = yInky;
             int currentxClyde = xClyde; //pixel position
             int currentyClyde = yClyde;
             //int current_xPtile = (xPinky-8)/8; 
             //int current_yPtile = (yPinky - 16)/8;
-            int current_xItile = (xInky-8)/8; 
-            int current_yItile = (yInky - 16)/8;
+            current_xItile = (xInky-8)/8; 
+            current_yItile = (yInky - 16)/8;
             int current_xCtile = (xClyde-8)/8; 
             int current_yCtile = (yClyde - 16)/8;
             
@@ -788,13 +858,38 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // probably safe to assume when xtile is same, ytile is also same but ??not sure 
             
             if(current_xtile == current_xBtile && current_ytile == current_yBtile){
-                lives -= 1; //lose a life rip
-                // all characters pause and picman dies
-                //sprintf(tft_str_buffer,"in the if oh no"); //print distress
-                //tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
-                collisionFlag = 1;
+                if(ghostArray[0] != 3){
+                    lives -= 1; //lose a life rip
+                    // all characters pause and picman dies
+                    //sprintf(tft_str_buffer,"in the if oh no"); //print distress
+                    //tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+                    collisionFlag = 1;
+                }
+                else{
+                    Blinky_Color = ILI9340_RED;
+                    xBlinky = 120;
+                    yBlinky = 132;
+                    ghostArray[0] = prevState[0];
+                }
             } // end blinky collision check
-           
+            else if(current_xtile == current_xPtile && current_ytile == current_yPtile){
+                if(ghostArray[1] != 3){
+                    lives -= 1; //lose a life rip
+                    // all characters pause and picman dies
+                    //sprintf(tft_str_buffer,"in the if oh no"); //print distress
+                    //tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+                    collisionFlag = 1;
+                }
+                else{
+                    printf("ghost state = %d, \n", ghostArray[1]);
+                    Pinky_Color = ILI9340_PINK;
+                    xPinky = 120;
+                    yPinky = 132;
+                    ghostArray[1] = prevState[1];
+                    
+                }
+            } // end blinky collision check
+            
             // IF collision
             // all characters pause, picman dies (flashing)
             // picman doesnt move until gui input again 
@@ -861,10 +956,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 tft_fillCircle(currentxClyde,currentyClyde,2,ILI9340_BLACK); //erase clyde rip loml
                 
                 tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
-                tft_fillCircle(xBlinky,yBlinky,2,ILI9340_RED); //plot new blinky
-                tft_fillCircle(xPinky,yPinky,2,ILI9340_PINK); //plot new pinky
-                tft_fillCircle(xInky,yInky,2,ILI9340_CYAN); //plot new inky
-                tft_fillCircle(xClyde,yClyde,2,ILI9340_ORANGE); //plot new clyde! loml is back
+                tft_fillCircle(xBlinky,yBlinky,2,Blinky_Color); //plot new blinky
+                tft_fillCircle(xPinky,yPinky,2,Pinky_Color); //plot new pinky
+                tft_fillCircle(xInky,yInky,2,Inky_Color); //plot new inky
+                tft_fillCircle(xClyde,yClyde,2,Clyde_Color); //plot new clyde! loml is back
             }  
         } //end of if isStart 
         
