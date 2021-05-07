@@ -82,9 +82,9 @@ int begin_time, check_time; //begin used in timer thread, check is to turn on LE
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
 short xPacman =120; //initial pacman position stored as x,y pixel coords on tft
 short yPacman =228;
-short xBlinky = 121; //blinky starts just above pen, in scatter mode
+short xBlinky = 120; //blinky starts just above pen, in scatter mode
 short yBlinky = 132;
-short xPinky = 121;
+short xPinky = 120;
 short yPinky = 156;
 short xInky = 105;
 short yInky = 156;
@@ -107,6 +107,8 @@ int oppBDirection;  //store direction opposite to Blinky's current direction, us
 int oppPDirection;  //pinky
 int oppIDirection;  //inky
 int oppCDirection;  //clyde, loml
+int prev_xBtile = 14; //calculated from (xtile-8)/8
+int prev_yBtile = 14; //calculated from (ytile-16)/8
 int P_xtarget;      //ghost target tiles, updated every animation loop based on picmans position
 int P_ytarget;      //Blnky's target tile is picman and we just didnt create a separate variable 
 int I_xtarget;
@@ -511,6 +513,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction; //set previous direction now because direction is updaed when GUI is changed
                 }
+                P_xtarget=xPacman-32; //4 tiles
+                P_ytarget=yPacman-32;
             }    
             else if ((direction==2) && (collisionFlag != 1)) { //left
                 xPacman-=1;
@@ -532,6 +536,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction;
                 }
+                P_xtarget=xPacman-32; //4 tiles
+                P_ytarget=yPacman;
             }
             else if ((direction==3)&&(collisionFlag != 1)) { //down
                 yPacman+=1;
@@ -548,6 +554,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction;
                 }
+                P_xtarget=xPacman; //4 tiles
+                P_ytarget=yPacman+32;
             }
             else if ((direction==4) && (collisionFlag != 1)) { //right
                 xPacman+=1;
@@ -569,20 +577,29 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction;
                 }
+                P_xtarget=xPacman+32; //4 tiles
+                P_ytarget=yPacman;
             }//end pac-man arrow key logic
     
             ////////////// BLINKY /////////////////////////////////////
             int currentxBlinky = xBlinky; //pixel position
             int currentyBlinky = yBlinky;
+            int currentxPinky = xPinky;
+            int currentyPinky = yPinky;
             int current_xBtile = (xBlinky-8)/8; //find blinky's tile to check collisions and intersection behavior
             int current_yBtile = (yBlinky - 16)/8;
+            int current_xPtile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
+            int current_yPtile = (yPinky - 16)/8;
+            
             int new_xBtile; //to check if intended tile is legal
             int new_yBtile; 
+            int new_xPtile; //to check if intended tile is legal
+            int new_yPtile; 
             
             int xBlinkyNext=xBlinky;
             int yBlinkyNext=yBlinky;
-            
-            int prev_Bdirection = 1;
+            int xPinkyNext=xPinky;
+            int yPinkyNext=yPinky;
             
             if (ghostArray[0] == 1){ //if blinky is in chase mode 
             //blinky goes left at the start of the game 
@@ -591,7 +608,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     yBlinky-=1;
                     oppBDirection = 3; //down
                     yBlinkyNext -= 8; // add 8 because we care about the next tile 
-                    if(prev_Bdirection == 2 || prev_Bdirection == 4){
+                    if(prevBDirection == 2 || prevBDirection == 4){
                         xBlinky=current_xBtile*8+8+4;
                     }
                 }
@@ -599,7 +616,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     xBlinky-=1;
                     oppBDirection = 4; //right
                     xBlinkyNext -= 8; // add 8 because we care about the next tile 
-                    if (prev_Bdirection==1 || prev_Bdirection==3){//check if turned from left/right
+                    if (prevBDirection==1 || prevBDirection==3){//check if turned from left/right
                         yBlinky=current_yBtile*8+16+4;
                     }
                 }
@@ -607,7 +624,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     yBlinky+=1;
                     oppBDirection = 1; //up
                     yBlinkyNext += 8; // add 8 because we care about the next tile 
-                    if (prev_Bdirection==2 || prev_Bdirection==4){//check if turned from left/right
+                    if (prevBDirection==2 || prevBDirection==4){//check if turned from left/right
                         xBlinky=current_xBtile*8+8+4;
                     }
                 }
@@ -615,62 +632,151 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     xBlinky+=1;
                     oppBDirection = 2; //left
                     xBlinkyNext += 8; // add 8 because we care about the next tile
-                    if (prev_Bdirection==1 || prev_Bdirection==3){//check if turned from left/right
+                    if (prevBDirection==1 || prevBDirection==3){//check if turned from left/right
                         yBlinky=current_yBtile*8+16+4;
                     }
                 }
-                new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
-                new_yBtile = ((yBlinkyNext-4) - 16)/8;
+                int next_xBtile = (xBlinky-8)/8; //find blinky's tile to check collisions and intersection behavior
+                int next_yBtile = (yBlinky - 16)/8;
                 
-                //Assess intended tile, check if tiles in the three potentially allowed directions are legal
-                // only three potentially legal tiles bc we cannot reverse directions 
-                int ii;
-                int tilesum; //if greater than 1, then there are multiple legal tiles available
-                float nextnexttileDist [4]; //to check which of the three other directions are legal
-                float shortestDist=1000;
-                for (ii=1; ii<=4; ii++){
-                    int xBlinkyNextNext=xBlinkyNext;
-                    int yBlinkyNextNext=yBlinkyNext;
-                    if(ii != oppBDirection){
-                        if (ii==1) { //up
-                            yBlinkyNextNext -= 8; // add 8 because we care about the next tile 
-                        }
-                        else if (ii==2) { //left
-                            xBlinkyNextNext -= 8; // add 8 because we care about the next tile 
-                        }
-                        else if (ii==3) { //down
-                            yBlinkyNextNext += 8; // add 8 because we care about the next tile 
-                        }
-                        else if (ii==4) { //right
-                            xBlinkyNextNext += 8; // add 8 because we care about the next tile
-                        }
-                        new_xBtile = (xBlinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
-                        new_yBtile = ((yBlinkyNextNext-4) - 16)/8;
-                        if(map[new_yBtile][new_xBtile] == 1){ //if the next intended tile is legal
-                            int x_dist = abs(xPacman - xBlinkyNextNext); //calculate dist to target
-                            int y_dist = abs(yPacman - yBlinkyNextNext);
-                            float dist = max(x_dist, y_dist) + min(x_dist, y_dist)*.4;
-                            if (dist<shortestDist) { //check which dir is shortest
-                                shortestDist=dist;
-                                prev_Bdirection  = Bdirection;
-                                Bdirection=ii; //save direction
+                //only calculate next tile if we havent yet
+                if (next_xBtile!=current_xBtile || next_yBtile!=current_yBtile){
+                    //new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
+                    //new_yBtile = ((yBlinkyNext-4) - 16)/8;
+
+                    //Assess intended tile, check if tiles in the three potentially allowed directions are legal
+                    // only three potentially legal tiles bc we cannot reverse directions 
+                    int ii;
+                    int tilesum; //if greater than 1, then there are multiple legal tiles available
+                    float nextnexttileDist [4]; //to check which of the three other directions are legal
+                    float shortestDist=1000;
+                    int tempBDirection;
+                    for (ii=1; ii<=4; ii++){
+                        int xBlinkyNextNext=xBlinkyNext;
+                        int yBlinkyNextNext=yBlinkyNext;
+                        if(ii != oppBDirection){
+                            if (ii==1) { //up
+                                yBlinkyNextNext -= 8; // add 8 because we care about the next tile 
                             }
-                        }
-                    } //end if != oppbdirection
-                } // end for loop for the four directions 
-             
+                            else if (ii==2) { //left
+                                xBlinkyNextNext -= 8; // add 8 because we care about the next tile 
+                            }
+                            else if (ii==3) { //down
+                                yBlinkyNextNext += 8; // add 8 because we care about the next tile 
+                            }
+                            else if (ii==4) { //right
+                                xBlinkyNextNext += 8; // add 8 because we care about the next tile
+                            }
+                            new_xBtile = (xBlinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
+                            new_yBtile = ((yBlinkyNextNext-4) - 16)/8;
+                            if(map[new_yBtile][new_xBtile] == 1){ //if the next intended tile is legal
+                                int x_dist = abs(xPacman - xBlinkyNextNext); //calculate dist to target
+                                int y_dist = abs(yPacman - yBlinkyNextNext);
+                                float dist = max(x_dist, y_dist) + min(x_dist, y_dist)*.4;
+                                if (dist<shortestDist) { //check which dir is shortest
+                                    shortestDist=dist;
+                                    prevBDirection  = Bdirection;
+                                    tempBDirection=ii; //save direction
+                                }
+                            }
+                        } //end if != oppbdirection
+                    } // end for loop for the four directions 
+                    Bdirection=tempBDirection;
+                } //end if not same tile
+                
+                /******PINKY********/
+                if (Pdirection==1) { //up
+                    yPinky-=1;
+                    oppPDirection = 3; //down
+                    yPinkyNext -= 8; // add 8 because we care about the next tile 
+                    if(prevPDirection == 2 || prevPDirection == 4){
+                        xPinky=current_xPtile*8+8+4;
+                    }
+                }
+                else if (Pdirection==2) { //left
+                    xPinky-=1;
+                    oppPDirection = 4; //right
+                    xPinkyNext -= 8; // add 8 because we care about the next tile 
+                    if (prevPDirection==1 || prevPDirection==3){//check if turned from left/right
+                        yPinky=current_yPtile*8+16+4;
+                    }
+                }
+                else if (Pdirection==3) { //down
+                    yPinky+=1;
+                    oppPDirection = 1; //up
+                    yPinkyNext += 8; // add 8 because we care about the next tile 
+                    if (prevPDirection==2 || prevPDirection==4){//check if turned from left/right
+                        xPinky=current_xPtile*8+8+4;
+                    }
+                }
+                else if (Pdirection==4) { //right
+                    xPinky+=1;
+                    oppPDirection = 2; //left
+                    xPinkyNext += 8; // add 8 because we care about the next tile
+                    if (prevPDirection==1 || prevPDirection==3){//check if turned from left/right
+                        yPinky=current_yPtile*8+16+4;
+                    }
+                }
+                int next_xPtile = (xPinky-8)/8; //find blinky's tile to check collisions and intersection behavior
+                int next_yPtile = (yPinky - 16)/8;
+                
+                //only calculate next tile if we havent yet
+                if (next_xPtile!=current_xPtile || next_yPtile!=current_yPtile){
+                    //new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
+                    //new_yBtile = ((yBlinkyNext-4) - 16)/8;
+
+                    //Assess intended tile, check if tiles in the three potentially allowed directions are legal
+                    // only three potentially legal tiles bc we cannot reverse directions 
+                    int ii;
+                    int tilesum; //if greater than 1, then there are multiple legal tiles available
+                    float nextnexttileDist [4]; //to check which of the three other directions are legal
+                    float shortestDist=1000;
+                    int tempPDirection;
+                    for (ii=1; ii<=4; ii++){
+                        int xPinkyNextNext=xPinkyNext;
+                        int yPinkyNextNext=yPinkyNext;
+                        if(ii != oppPDirection){
+                            if (ii==1) { //up
+                                yPinkyNextNext -= 8; // add 8 because we care about the next tile 
+                            }
+                            else if (ii==2) { //left
+                                xPinkyNextNext -= 8; // add 8 because we care about the next tile 
+                            }
+                            else if (ii==3) { //down
+                                yPinkyNextNext += 8; // add 8 because we care about the next tile 
+                            }
+                            else if (ii==4) { //right
+                                xPinkyNextNext += 8; // add 8 because we care about the next tile
+                            }
+                            new_xPtile = (xPinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
+                            new_yPtile = ((yPinkyNextNext) - 16)/8;
+                            if(map[new_yPtile][new_xPtile] == 1){ //if the next intended tile is legal
+                                int x_dist = abs(P_xtarget - xPinkyNextNext); //calculate dist to target
+                                int y_dist = abs(P_ytarget - yPinkyNextNext);
+                                float dist = max(x_dist, y_dist) + min(x_dist, y_dist)*.4;
+                                if (dist<shortestDist) { //check which dir is shortest
+                                    shortestDist=dist;
+                                    prevPDirection  = Pdirection;
+                                    tempPDirection=ii; //save direction
+                                }
+                            }
+                        } //end if != oppbdirection
+                    } // end for loop for the four directions 
+                    Pdirection=tempPDirection;
+                } //end if not same tile
             } //end if chase mode 
+            
            
             ////////// PINKY &CO ////////////////////////////////////////////////
             // though tbh i think all of the local var should be moved to the top of the animation thread
-            int currentxPinky = xPinky; //pixel position
-            int currentyPinky = yPinky;
+            //int currentxPinky = xPinky; //pixel position
+            //int currentyPinky = yPinky;
             int currentxInky = xInky; //pixel position
             int currentyInky = yInky;
             int currentxClyde = xClyde; //pixel position
             int currentyClyde = yClyde;
-            int current_xPtile = (xPinky-8)/8; 
-            int current_yPtile = (yPinky - 16)/8;
+            //int current_xPtile = (xPinky-8)/8; 
+            //int current_yPtile = (yPinky - 16)/8;
             int current_xItile = (xInky-8)/8; 
             int current_yItile = (yInky - 16)/8;
             int current_xCtile = (xClyde-8)/8; 
@@ -717,7 +823,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 direction = 5; //some number that's not wasd so picman stops moving 
                 xPacman=120;   //initial pacman position 
                 yPacman=228;
-                resetGhosts = 1; 
+                resetGhosts = 1;
 
                 //update lives display
                 if(lives == 2){
@@ -772,7 +878,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             mPORTASetBits(BIT_0); // turn LED on IF we meet 30FPS 
         }
         
-        PT_YIELD_TIME_msec(17 - check_time);   
+        PT_YIELD_TIME_msec(32 - check_time);   
     } // end while(1)) before PT_END st it's never executed
     PT_END(pt);
 } //close thread
