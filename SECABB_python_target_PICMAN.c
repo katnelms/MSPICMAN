@@ -2,8 +2,8 @@
  * File:        Python control for ECE 4760 Final Project: Ms PIC-MAN
  *             
  * 
- * sprintf(tft_str_buffer,"%d", score); //preint new score
-                tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+ * sprintf(tft_str_buffer,"%d", score); //print new score
+   tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
  * 
  * Authors:     Melissa Alvarez, Grace Ding, Kat Nelms
  * Adapted from code written by Bruce Land
@@ -77,7 +77,11 @@ int chaseTimer;  //switch to scatter mode once chase timer is above 20s, 4x per 
 int frightTimer; //triggered when PICMAN eats Big Dots
 char isStart;    //flag set once start button pressed on Python GUI
 int begin_time, check_time; //begin used in timer thread, check is to turn on LED as long as we meet animation requirement
-int global_dotCounter, PdotCounter, IdotCounter, CdotCounter;
+int global_dotCounter, PdotCounter, IdotCounter, CdotCounter; // these are all for ghost logic 
+int dotsMunched = 0; // maze is 244 dots, used when level is complete
+int fruitxtile, fruitytile; 
+
+
 
 // -------- character animation stuff ---------------------------------------
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
@@ -130,6 +134,9 @@ int flashFlag = 0; // if collision: if high, plot picman, if low, plot backgroun
 int flashNum = 0; //keep track of how many times picman is flashed after collision,stop at 4x    
 float flashCounter = 0; // to slow down animation speed of picman death
 int collisionFlag = 0; //set to high when a collision happens to pause characters
+int gameOverFlag = 0; //seems redundant bc we already have isStart but useful for plotting end of game, new game stuff
+int numLevels = 0; //how many levels have been cleared so far. Max? like 3 maybe? 
+
 
 // ogdots array exists to reset dots when the game is over but PIC not reset
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
@@ -389,14 +396,30 @@ static PT_THREAD (protothread_timer(struct pt *pt))
     PT_END(pt);
 } // timer thread
 
-// === RESET MAP FUNCTION ========================================================
+// === NEW LEVEL ===============================================================
+void newlevel() {
+    
+    //reset counters
+    numLevels++;
+    dotsMunched = 0;
+    global_dotCounter =0;
+    PdotCounter = 0;
+    IdotCounter = 0;
+    CdotCounter = 0; // maze is 244 dots
+    
+    //reset map and the kids
+    resetMap();
+    resetGhosts();
+}
+
+// === RESET MAP FUNCTION ======================================================
 void resetMap() {
     //SIGH reset dots array
     for(ii =0; ii < 36; ii++){ //28x36 tile grid
         for(jj = 0; jj < 28; jj++)
-            dots[ii][jj] = ogdots[ii][jj]; //fill in legal space a different color from deadspace
+            dots[ii][jj] = ogdots[ii][jj]; 
     }
-        
+    
     //then reset map
     tft_fillScreen(ILI9340_BLACK);
     int draw_row = 0;
@@ -428,7 +451,7 @@ void resetMap() {
         tft_fillCircle(46,290,5,ILI9340_YELLOW);  //plot third life
 
     if(isStart == 1) //only reset ghosts if game not over
-        resetGhosts(); //CHANGE THIS TO CALL GHOST FUNCTION
+        resetGhosts(); 
 } // end map function
 
 // === RESET GHOSTS FUNCTION ========================================================
@@ -443,7 +466,9 @@ void resetGhosts() {
     for (ii=1;ii<4;ii++){ //set other ghost states to "in pen"
         ghostArray[ii]=0;
     }
-
+    direction = 5; //not WASD so picman stops moving
+    xPacman =120; 
+    yPacman =228;
     xBlinky = 120; //blinky starts just above pen, in scatter mode
     yBlinky = 132; //other ghosts are in pen
     xPinky = 120;
@@ -454,11 +479,11 @@ void resetGhosts() {
     yClyde = 156;
     
     //set ghost colors to black so that when a game ends and the animation thread finishes it replots all characters but u cant see them 
-    if (lives = 0){
+    if (lives == 0){
         Blinky_Color = ILI9340_BLACK; 
         Pinky_Color = ILI9340_BLACK;
         Inky_Color = ILI9340_BLACK;
-        Clyde_Color = ILI9340_ORANGE; //clyde <3
+        Clyde_Color = ILI9340_BLACK; //clyde <3
     }
     else {
         Blinky_Color = ILI9340_RED; //reset ghosts to og colors
@@ -466,7 +491,6 @@ void resetGhosts() {
         Inky_Color = ILI9340_CYAN;
         Clyde_Color = ILI9340_ORANGE; //c l y d e <333
     }
-    
     chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
  } // end of resetGhosts function
 
@@ -481,7 +505,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
     while(1){
         begin_time = PT_GET_TIME();  // objective animation speed 60FPS
         
-        ////////////PAC MAN ///////////////////////////////////
+        ////////////PAC MAN /////////////////////////////////
         static int currentxPacman;
         static int currentyPacman;
         static int current_xtile;
@@ -496,6 +520,36 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             //----- MUNCH THE DOTS ---------------------------------------------
             if(dots[current_ytile][current_xtile]==1){ //if pacman passes through a new dot
                 score+=10; //then increase points
+                dotsMunched++;    //increase the dots counter that keeps track of when the maze is reset/level complete
+                
+                if(dotsMunched >= 70){
+                    //fruit!!
+                    //fruitflag = 1;
+                    tft_fillCircle(120, 176, 3, ILI9340_RED); //cherries? lol
+                    fruitxtile = (120-8)/8; //we centered the maze on the TFT. subtract centering offset and divide by 8 to get tile
+                    fruitytile = (176 - 16)/8; 
+                    //dots[fruitxtile]
+
+                }
+                if (dotsMunched == 244){
+                    //characters pause and picman flashes
+                    while (flashNum < 6) { //flashNum initialized to zero
+                        PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
+                            if(flashFlag == 0){ // plot over picman to flash   
+                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+                                flashFlag = 1; //set flag to high for next time through the loop
+                                flashNum +=1;
+                            }
+                            else if(flashFlag == 1){ // replot picman to flash
+                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_YELLOW); //erase pic-man
+                                flashFlag = 0; //set flag to 0 for next time through the loop
+                                flashNum +=1;
+                            } 
+                    } // end while
+                    flashNum = 0;
+                    newlevel();
+                    
+                }
                 if(lives == 3){ //if 1 life lost, switch to global dot counter
                     if(PdotCounter < 1){ //dot counter limits for each ghost - blinkys is zero
                         PdotCounter++;
@@ -516,6 +570,26 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             }
             else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
                 score+=50; // increase points 
+                dotsMunched++; //increase dots counter. max 244
+                if (dotsMunched == 244){ //check if maze was cleared
+                    //characters pause and picman flashes
+                    while (flashNum < 6) { //flashNum initialized to zero
+                        PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
+                            if(flashFlag == 0){ // plot over picman to flash   
+                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+                                flashFlag = 1; //set flag to high for next time through the loop
+                                flashNum +=1;
+                            }
+                            else if(flashFlag == 1){ // replot picman to flash
+                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_YELLOW); //erase pic-man
+                                flashFlag = 0; //set flag to 0 for next time through the loop
+                                flashNum +=1;
+                            } 
+                    } // end while
+                    flashNum = 0;
+                    newlevel();
+                }
+                
                 dots[current_ytile][current_xtile]=0; //store new dot value
                 int i;
                 for (i=0;i<4;i++){ //trigger frighten mode
@@ -532,7 +606,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                
                 //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
-                sprintf(tft_str_buffer,"%d", score); //preint new score
+                sprintf(tft_str_buffer,"%d", score); //print new score
                 tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2); 
             }
 
@@ -940,14 +1014,24 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                     
                    //PRINT GAME OVER
-                    sprintf(tft_str_buffer," GAME OVER");  //sucks2suck
-                    tft_printLine(3, 0, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
-                    PT_YIELD_TIME_msec(1000); 
+                   sprintf(tft_str_buffer, " GAME OVER");  //sucks2suck
+                   tft_printLine(3, 0, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
+                   PT_YIELD_TIME_msec(1000); 
                    
-                    //set a flag to trigger game over sequence
-                    isStart = 0; //but we still finish this time through the loop so ghosts r animated one last time 
-                    resetMap();
-                    score = 0; 
+                   //set a flag to trigger game over sequence
+                   //possibly move all of the variable resets somewhere else ? 
+                   //might make sense to put them in the button thread but like "if isStart !=1 already" so game doesnt break
+                   gameOverFlag = 1;
+                   isStart = 0; //but we still finish this time through the loop so ghosts r animated one last time 
+                   lives = 3;   //update now for when the map is reset in 2s
+                   score = 0;
+                   //dots = 0;
+                   global_dotCounter = 0;
+                   PdotCounter = 0;
+                   IdotCounter = 0;
+                   CdotCounter = 0; // maze is 244 dots
+                   resetMap();
+                   
                 }//end if lives = 0
          
                 flashNum = 0; //reset to zero for next collision
@@ -966,6 +1050,12 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             tft_fillCircle(xPinky,yPinky,2,Pinky_Color); //plot new pinky
             tft_fillCircle(xInky,yInky,2,Inky_Color); //plot new inky
             tft_fillCircle(xClyde,yClyde,2,Clyde_Color); //plot new clyde! loml is back 
+            
+            //this is such a jank solution i hate it 
+            if (gameOverFlag == 1){
+                //reset flag next time the game is started 
+                tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //plot new picman
+            }
         } //end of if isStart 
         
         // 30 fps => frame time of 32 mSec. This blurb checks that we're meeting that goal
@@ -1053,6 +1143,12 @@ static PT_THREAD (protothread_buttons(struct pt *pt))
         if (button_id==1 && button_value==1){
             // change some var to true to signal game start
             //tft_fillScreen(ILI9340_RED); //debug
+            if (gameOverFlag == 1){
+                resetGhosts();
+                gameOverFlag = 0; 
+                // reset here so that I can use it to check if the game was previously played since pic reset
+                // if new game without pic reset, need to reset ghosts so their colors are normal
+            }
             isStart=1;
         }
     } // END WHILE(1)   
