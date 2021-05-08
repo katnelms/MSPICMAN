@@ -130,8 +130,6 @@ int flashFlag = 0; // if collision: if high, plot picman, if low, plot backgroun
 int flashNum = 0; //keep track of how many times picman is flashed after collision,stop at 4x    
 float flashCounter = 0; // to slow down animation speed of picman death
 int collisionFlag = 0; //set to high when a collision happens to pause characters
-int resetMap = 0; //set to high when the game is over, level is cleared, etc to reset map
-int resetGhosts = 0; //more versatile than reset map bc this is set high every time a life is lost
 
 // ogdots array exists to reset dots when the game is over but PIC not reset
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
@@ -252,7 +250,7 @@ char ogdots[36][28] = { //hard code which legal space tiles have dots
 
 ////////////////////////////////////
 // === print a line on TFT =====================================================
-// funstion written by Bruce 
+// function written by Bruce 
 char tft_str_buffer[60];
 // SEE 
 // http://people.ece.cornell.edu/land/courses/ece4760/PIC32/index_TFT_display.html
@@ -287,69 +285,6 @@ void __ISR(_TIMER_3_VECTOR, ipl2) Timer3Handler(void){
 void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
 	mT4ClearIntFlag(); // you MUST clear the ISR flag
    
-    if (resetMap == 1){
-        //SIGH reset dots array
-        for(ii =0; ii < 36; ii++){ //28x36 tile grid
-            for(jj = 0; jj < 28; jj++)
-                dots[ii][jj] = ogdots[ii][jj]; //fill in legal space a different color from deadspace
-        }
-        
-        //then reset map
-        tft_fillScreen(ILI9340_BLACK);
-        int draw_row = 0;
-        for(draw_row =0; draw_row < 36; draw_row++){ //28x36 tile grid
-            int check_tile = 0;
-            for(check_tile = 0; check_tile < 28; check_tile++){
-                if(map[draw_row][check_tile] == 0){ //fill in legal space a different color from deadspace
-                    tft_fillRect((short) (8 + check_tile*8), (short) (16 + draw_row*8), (short) 8, (short) 8, ILI9340_BLUE);
-                }
-                if(dots[draw_row][check_tile] == 1) //draw small dots
-                    tft_drawPixel((short)(12 + check_tile*8), (short) (20 + draw_row*8), ILI9340_WHITE);
-                else if(dots[draw_row][check_tile] == 2) //draw four Big Dots
-                    tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 3, ILI9340_WHITE);
-               }
-        }
-        //initialize score counter
-        sprintf(tft_str_buffer,"Score"); 
-        tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
-        sprintf(tft_str_buffer,"%d", score); 
-        tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
-    
-        //initialize lives 
-        tft_fillCircle(24,290,5,ILI9340_YELLOW); //whenlives are lost, plot over them from R to L
-        tft_drawCircle(24,290,5,ILI9340_BLACK); //does nothing visually rip
-        tft_fillCircle(35,290,5,ILI9340_YELLOW); 
-        tft_drawCircle(35,290,5,ILI9340_BLACK); 
-        tft_fillCircle(46,290,5,ILI9340_YELLOW); 
-        tft_drawCircle(46,290,5,ILI9340_BLACK); 
-        
-        resetMap = 0;
-        if(isStart ==1) //only reset ghosts if game not over
-            resetGhosts = 1;
-    }// end if resetMap
-    
-    if (resetGhosts == 1){
-        tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //remove the ghosts              
-        tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); 
-        tft_fillCircle(xPinky,yPinky,2,ILI9340_BLACK);
-        tft_fillCircle(xInky,yInky,2,ILI9340_BLACK);
-        tft_fillCircle(xClyde,yClyde,2,ILI9340_BLACK); 
-        
-        int i;
-        for (i=0;i<4;i++){ //set ghost state to "in pen"
-            ghostArray[i]=0;
-        }
-    
-        xBlinky = 121; //blinky starts just above pen, in scatter mode
-        yBlinky = 132; //other ghosts are in pen
-        xPinky = 121;
-        yPinky = 156;
-        xInky = 105;
-        yInky = 156;
-        xClyde = 137;
-        yClyde = 156;
-        resetGhosts = 0;
-    }
 }// end 16bit ISR
 
 // === Timer Thread: CONTROLS GHOST MODES ======================================
@@ -454,6 +389,86 @@ static PT_THREAD (protothread_timer(struct pt *pt))
     PT_END(pt);
 } // timer thread
 
+// === RESET MAP FUNCTION ========================================================
+void resetMap() {
+    //SIGH reset dots array
+    for(ii =0; ii < 36; ii++){ //28x36 tile grid
+        for(jj = 0; jj < 28; jj++)
+            dots[ii][jj] = ogdots[ii][jj]; //fill in legal space a different color from deadspace
+    }
+        
+    //then reset map
+    tft_fillScreen(ILI9340_BLACK);
+    int draw_row = 0;
+    for(draw_row =0; draw_row < 36; draw_row++){ //28x36 tile grid
+        int check_tile = 0;
+        for(check_tile = 0; check_tile < 28; check_tile++){
+            if(map[draw_row][check_tile] == 0){ //fill in legal space a different color from deadspace
+                tft_fillRect((short) (8 + check_tile*8), (short) (16 + draw_row*8), (short) 8, (short) 8, ILI9340_BLUE);
+            }
+            if(dots[draw_row][check_tile] == 1) //draw small dots
+                tft_drawPixel((short)(12 + check_tile*8), (short) (20 + draw_row*8), ILI9340_WHITE);
+            else if(dots[draw_row][check_tile] == 2) //draw four Big Dots
+                tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 3, ILI9340_WHITE);
+           }
+    }
+        
+    //initialize score counter
+    sprintf(tft_str_buffer,"Score"); 
+    tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    sprintf(tft_str_buffer,"%d", score); 
+    tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    
+    //replot lives 
+    //this thread is called in between levels so cant necessarily just replot all 3 lives
+    tft_fillCircle(24,290,5,ILI9340_YELLOW); //plot the first life bc if lives < 1 game over
+    if (lives >= 2) //if at least two lives left
+        tft_fillCircle(35,290,5,ILI9340_YELLOW); //plot second life 
+    if (lives == 3) // if all three lives left
+        tft_fillCircle(46,290,5,ILI9340_YELLOW);  //plot third life
+
+    if(isStart == 1) //only reset ghosts if game not over
+        resetGhosts(); //CHANGE THIS TO CALL GHOST FUNCTION
+} // end map function
+
+// === RESET GHOSTS FUNCTION ========================================================
+void resetGhosts() {
+    tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //remove the ghosts              
+    tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); 
+    tft_fillCircle(xPinky,yPinky,2,ILI9340_BLACK);
+    tft_fillCircle(xInky,yInky,2,ILI9340_BLACK);
+    tft_fillCircle(xClyde,yClyde,2,ILI9340_BLACK); 
+
+    ghostArray[0] = 2; //put blinky in scatter mode
+    for (ii=1;ii<4;ii++){ //set other ghost states to "in pen"
+        ghostArray[ii]=0;
+    }
+
+    xBlinky = 120; //blinky starts just above pen, in scatter mode
+    yBlinky = 132; //other ghosts are in pen
+    xPinky = 120;
+    yPinky = 156;
+    xInky = 105;
+    yInky = 156;
+    xClyde = 137;
+    yClyde = 156;
+    
+    //set ghost colors to black so that when a game ends and the animation thread finishes it replots all characters but u cant see them 
+    if (lives = 0){
+        Blinky_Color = ILI9340_BLACK; 
+        Pinky_Color = ILI9340_BLACK;
+        Inky_Color = ILI9340_BLACK;
+        Clyde_Color = ILI9340_ORANGE; //clyde <3
+    }
+    else {
+        Blinky_Color = ILI9340_RED; //reset ghosts to og colors
+        Pinky_Color = ILI9340_PINK;
+        Inky_Color = ILI9340_CYAN;
+        Clyde_Color = ILI9340_ORANGE; //c l y d e <333
+    }
+    
+    chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
+ } // end of resetGhosts function
 
 // === ANIMATION THREAD==================================================== //
 // plots picman continuously in direction last set by GUI input
@@ -676,7 +691,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 int next_yBtile = (yBlinky - 16)/8;
                 
                 //only calculate next tile if we havent yet
-                if (next_xBtile!=current_xBtile || next_yBtile!=current_yBtile){
+                if ((next_xBtile!=current_xBtile || next_yBtile!=current_yBtile)){
                     //new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
                     //new_yBtile = ((yBlinkyNext-4) - 16)/8;
 
@@ -729,8 +744,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     PdotCounter = 2;
                 }  
                 
-                
-                /******PINKY********/
+                // *****PINKY********
                 if (Pdirection==1) { //up
                     yPinky-=1;
                     oppPDirection = 3; //down
@@ -809,7 +823,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         } //end if != oppbdirection
                     } // end for loop for the four directions 
                     Pdirection=tempPDirection;
-                } //end if not same tile
+                } //end if not same tile 
             } //end if chase mode 
 
            
@@ -855,29 +869,23 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
             // do this after tiles have been updated for all characters
             // could use for OR operators and do this all at once but realllllly long if condition 
-            // probably safe to assume when xtile is same, ytile is also same but ??not sure 
             
             if(current_xtile == current_xBtile && current_ytile == current_yBtile){
-                if(ghostArray[0] != 3){
+                if(ghostArray[0] != 3){ //if not in frighten mode
                     lives -= 1; //lose a life rip
                     // all characters pause and picman dies
-                    //sprintf(tft_str_buffer,"in the if oh no"); //print distress
-                    //tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
                     collisionFlag = 1;
                 }
-                else{
-                    Blinky_Color = ILI9340_RED;
-                    xBlinky = 120;
+                else{ 
+                    Blinky_Color = ILI9340_RED; //when frighten mode triggered, blinky is set to blue. replot in red once Munched(tm)
+                    xBlinky = 120; // plot blinky in OG position
                     yBlinky = 132;
-                    ghostArray[0] = prevState[0];
+                    ghostArray[0] = prevState[0]; // put him back in whatever mode he was in before being Frightened 
                 }
             } // end blinky collision check
             else if(current_xtile == current_xPtile && current_ytile == current_yPtile){
                 if(ghostArray[1] != 3){
                     lives -= 1; //lose a life rip
-                    // all characters pause and picman dies
-                    //sprintf(tft_str_buffer,"in the if oh no"); //print distress
-                    //tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
                     collisionFlag = 1;
                 }
                 else{
@@ -888,9 +896,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     ghostArray[1] = prevState[1];
                     
                 }
-            } // end blinky collision check
+            } // end pinky collision check
             
-            // IF collision
+            // IF collision AND not in frighten mode
             // all characters pause, picman dies (flashing)
             // picman doesnt move until gui input again 
             // ghosts are reset, timer for ghost modes is reset 
@@ -918,7 +926,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 direction = 5; //some number that's not wasd so picman stops moving 
                 xPacman=120;   //initial pacman position 
                 yPacman=228;
-                resetGhosts = 1;
+                resetGhosts();
 
                 //update lives display
                 if(lives == 2){
@@ -927,40 +935,37 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 if(lives == 1){
                     tft_fillCircle(35,290,5,ILI9340_BLUE); //draw over life
                 }
-                if(lives == 0){
+                if(lives == 0){ //game over loser
                     tft_fillCircle(24,290,5,ILI9340_BLUE); //draw over life
                     tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                     
                    //PRINT GAME OVER
-                    sprintf(tft_str_buffer," GAME OVER"); 
+                    sprintf(tft_str_buffer," GAME OVER");  //sucks2suck
                     tft_printLine(3, 0, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
                     PT_YIELD_TIME_msec(1000); 
                    
                     //set a flag to trigger game over sequence
-                    isStart = 0; 
-                    resetMap = 1;
+                    isStart = 0; //but we still finish this time through the loop so ghosts r animated one last time 
+                    resetMap();
                     score = 0; 
-                    
                 }//end if lives = 0
          
                 flashNum = 0; //reset to zero for next collision
                 collisionFlag = 0; //let characters animate again
-                chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
-            }//end if collisionFlag
+            }//end if collisionFlag == 1
             
-            if(collisionFlag == 0){ //if we didn't collide in this loop, animate normally
-                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
-                tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
-                tft_fillCircle(currentxPinky,currentyPinky,2,ILI9340_BLACK); //erase pinky
-                tft_fillCircle(currentxInky,currentyInky,2,ILI9340_BLACK); //erase inky
-                tft_fillCircle(currentxClyde,currentyClyde,2,ILI9340_BLACK); //erase clyde rip loml
-                
-                tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
-                tft_fillCircle(xBlinky,yBlinky,2,Blinky_Color); //plot new blinky
-                tft_fillCircle(xPinky,yPinky,2,Pinky_Color); //plot new pinky
-                tft_fillCircle(xInky,yInky,2,Inky_Color); //plot new inky
-                tft_fillCircle(xClyde,yClyde,2,Clyde_Color); //plot new clyde! loml is back
-            }  
+            
+            tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
+            tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
+            tft_fillCircle(currentxPinky,currentyPinky,2,ILI9340_BLACK); //erase pinky
+            tft_fillCircle(currentxInky,currentyInky,2,ILI9340_BLACK); //erase inky
+            tft_fillCircle(currentxClyde,currentyClyde,2,ILI9340_BLACK); //erase clyde rip loml
+
+            tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
+            tft_fillCircle(xBlinky,yBlinky,2,Blinky_Color); //plot new blinky
+            tft_fillCircle(xPinky,yPinky,2,Pinky_Color); //plot new pinky
+            tft_fillCircle(xInky,yInky,2,Inky_Color); //plot new inky
+            tft_fillCircle(xClyde,yClyde,2,Clyde_Color); //plot new clyde! loml is back 
         } //end of if isStart 
         
         // 30 fps => frame time of 32 mSec. This blurb checks that we're meeting that goal
