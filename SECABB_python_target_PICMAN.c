@@ -1203,7 +1203,14 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int cc;
             for(cc=0;cc<4;cc++){
                 tft_fillCircle(currXGhostPos[cc],currYGhostPos[cc],2,ILI9340_BLACK); //erase ghost
-                tft_fillCircle(xGhostPos[cc],yGhostPos[cc],2,ghostColors[cc]); //plot new blinky
+                
+                if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==1){
+                    tft_drawPixel((short)(12 + currXGhostTile[cc]*8), (short) (20 + currYGhostTile[cc]*8), ILI9340_WHITE);
+                }
+                else if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==2){
+                    tft_fillCircle((short)(12 + currXGhostTile[cc]*8), (short) (20 + currYGhostTile[cc]*8),(short) 3, ILI9340_WHITE);
+                }
+                tft_fillCircle(xGhostPos[cc],yGhostPos[cc],2,ghostColors[cc]); //plot new ghost
             }
             /*tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
             tft_fillCircle(currentxPinky,currentyPinky,2,ILI9340_BLACK); //erase pinky
