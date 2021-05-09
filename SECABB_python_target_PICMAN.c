@@ -84,7 +84,7 @@ int begin_time, check_time; //begin used in timer thread, check is to turn on LE
 int global_dotCounter, PdotCounter, IdotCounter, CdotCounter; // these are all for ghost logic 
 int dotsMunched = 0; // maze is 244 dots, used when level is complete
 int fruitxtile, fruitytile; 
-
+int global_ghost_timer;
 
 
 // -------- character animation stuff ---------------------------------------
@@ -108,7 +108,8 @@ int Pdirection = 2; //pinky's current direction
 int Idirection = 2; // inky's current direction
 int Cdirection = 2; // clyde. what a baller. does his own shit yk 
 int prevDirection;  //stores pacmans previous direction in the event user tries to change direction into dead space
-int prevBDirection; //blinky
+int bDirectionNext=2;   
+int prevBDirection=2; //blinky
 int prevPDirection; //pinky
 int prevIDirection; //inky
 int prevCDirection; //CLYDE we stan
@@ -116,19 +117,23 @@ int oppBDirection;  //store direction opposite to Blinky's current direction, us
 int oppPDirection;  //pinky
 int oppIDirection;  //inky
 int oppCDirection;  //clyde, loml
-int prev_xBtile = 14; //calculated from (xtile-8)/8
-int prev_yBtile = 14; //calculated from (ytile-16)/8
 int P_xtarget;      //ghost target tiles, updated every animation loop based on picmans position
 int P_ytarget;      //Blnky's target tile is picman and we just didnt create a separate variable 
 int I_xtarget;
 int I_ytarget;
 int C_xtarget;
 int C_ytarget;
+short xTarget[4];
+short yTarget[4];
 
-int Blinky_Color = ILI9340_RED;
+int ghostColors[4]={ILI9340_RED,ILI9340_PINK,ILI9340_CYAN,ILI9340_ORANGE};
+int ghostColorsInit[4]={ILI9340_RED,ILI9340_PINK,ILI9340_CYAN,ILI9340_ORANGE};
+int frightPRNG[15];
+
+/*int Blinky_Color = ILI9340_RED;
 int Pinky_Color = ILI9340_PINK;
 int Inky_Color = ILI9340_CYAN;
-int Clyde_Color = ILI9340_ORANGE;
+int Clyde_Color = ILI9340_ORANGE;*/
 
 //lost life, game over, new level etc
 int i; int ii; int jj; //because for loops r everywhere
@@ -141,6 +146,9 @@ int collisionFlag = 0; //set to high when a collision happens to pause character
 int gameOverFlag = 0; //seems redundant bc we already have isStart but useful for plotting end of game, new game stuff
 int numLevels = 0; //how many levels have been cleared so far. Max? like 3 maybe? 
 int ghostsEaten = 0;
+char isFrightened = 0; // 0 is not frightened, 1 is scary
+
+
 
 // ogdots array exists to reset dots when the game is over but PIC not reset
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
@@ -257,7 +265,17 @@ char ogdots[36][28] = { //hard code which legal space tiles have dots
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 }; 
-
+char prevGhostDir[4]={2,2,2,2};
+char currGhostDir[4]={2,2,2,2};
+char nextGhostDir[4]={2,2,2,2};
+short xGhostPos[4]={120,120,104,136};
+short yGhostPos[4]={132,156,156,156};
+short xGhostPosInit[4]={120,120,104,136};
+short yGhostPosInit[4]={132,156,156,156};
+short currXGhostPos[4];
+short currYGhostPos[4];
+short currXGhostTile[4];
+short currYGhostTile[4];
 
 ////////////////////////////////////
 // === print a line on TFT =====================================================
@@ -310,10 +328,12 @@ static PT_THREAD (protothread_timer(struct pt *pt))
         PT_YIELD_TIME_msec(1000); // yield time 1 second
         // chase timers reset after pacman loses a life
         // ghosts reverse directions for mode changes EXCEPT when returning from frighten mode
-        if (isStart==1 && ghostArray[0]!=3){ //if game is started via GUI and ghosts are not in frightened mode
+        if (isStart==1 && isFrightened == 0){ //if game is started via GUI and ghosts are not in frightened mode
             //0->in pen, 1->chase, 2->scatter, 3->frightened
             chaseTimer++; //increment timer to keep track of how long we've been in chase mode
             // ONLY increments if not in frightened mode !! nice 
+            
+            global_ghost_timer++;
             
             int i;
             if (chaseTimer<7){ //ghosts start in scatter mode, first scatter lasts 7 s
@@ -373,21 +393,25 @@ static PT_THREAD (protothread_timer(struct pt *pt))
                 }
             }
         }
-        else if (isStart==1 && ghostArray[0]==3){ // if game is started and blinky is in frightened
+        else if (isStart==1 && isFrightened == 1){ // if game is started and blinky is in frightened
             frightTimer++; //increment timer that keeps track of how long we've been in frighten mode
             int i;
+            //sprintf(tft_str_buffer, "%d", frightTimer); //print new score
+           // tft_printLine(4, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK, 2);  
             if (frightTimer>6) { //frighten mode lasts 6s
                 for (i=0;i<4;i++){
-                    if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
+                    //if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
                         //DEAL WITH THIS LATER
                         ghostArray[i]=prevState[i];//remember to save prev state and change here, ie return to scatter or chase from frighten
-                    }
+                    //}
+                    ghostColors[i]=ghostColorsInit[i];
                 }
-                Blinky_Color = ILI9340_RED;
+                
+                /*Blinky_Color = ILI9340_RED;
                 Pinky_Color = ILI9340_PINK;
                 Inky_Color = ILI9340_CYAN;
-                Clyde_Color = ILI9340_ORANGE;
-                
+                Clyde_Color = ILI9340_ORANGE;*/
+                isFrightened =0;
                 frightTimer=0; //reset frighten timer 
             }
         }
@@ -460,50 +484,185 @@ void resetMap() {
 
 // === RESET GHOSTS FUNCTION ========================================================
 void resetGhosts() {
-    tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //remove the ghosts              
-    tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); 
+    tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //remove the ghosts
+    
+    int z;
+    for(z=0;z<4;z++){
+        tft_fillCircle(xGhostPos[z],yGhostPos[z],2,ILI9340_BLACK); 
+        xGhostPos[z]=xGhostPosInit[z];
+        yGhostPos[z]=yGhostPosInit[z];
+        prevGhostDir[z]=2;
+        currGhostDir[z]=2;
+        nextGhostDir[z]=2;
+    }
+    /*tft_fillCircle(xBlinky,yBlinky,2,ILI9340_BLACK); 
     tft_fillCircle(xPinky,yPinky,2,ILI9340_BLACK);
     tft_fillCircle(xInky,yInky,2,ILI9340_BLACK);
-    tft_fillCircle(xClyde,yClyde,2,ILI9340_BLACK); 
+    tft_fillCircle(xClyde,yClyde,2,ILI9340_BLACK);*/
 
     ghostArray[0] = 2; //put blinky in scatter mode
     for (ii=1;ii<4;ii++){ //set other ghost states to "in pen"
         ghostArray[ii]=0;
     }
-    direction = 5; //not WASD so picman stops moving
+    direction = 0; //not WASD so picman stops moving
     xPacman =120; 
     yPacman =228;
-    xBlinky = 120; //blinky starts just above pen, in scatter mode
+    
+    /*xBlinky = 120; //blinky starts just above pen, in scatter mode
     yBlinky = 132; //other ghosts are in pen
     xPinky = 120;
     yPinky = 156;
     xInky = 105;
     yInky = 156;
     xClyde = 137;
-    yClyde = 156;
+    yClyde = 156;*/
     
     //set ghost colors to black so that when a game ends and the animation thread finishes it replots all characters but u cant see them 
     if (lives == 0){
-        Blinky_Color = ILI9340_BLACK; 
+        int a;
+        for (a=0;a<4;a++){
+            ghostColors[a]=ILI9340_BLACK;
+        }
+        /*Blinky_Color = ILI9340_BLACK; 
         Pinky_Color = ILI9340_BLACK;
         Inky_Color = ILI9340_BLACK;
-        Clyde_Color = ILI9340_BLACK; //clyde <3
+        Clyde_Color = ILI9340_BLACK;*/ //clyde <3
     }
     else {
-        Blinky_Color = ILI9340_RED; //reset ghosts to og colors
+        int a;
+        for (a=0;a<4;a++){
+            ghostColors[a]=ghostColorsInit[a];
+        }
+        /*Blinky_Color = ILI9340_RED; //reset ghosts to og colors
         Pinky_Color = ILI9340_PINK;
         Inky_Color = ILI9340_CYAN;
-        Clyde_Color = ILI9340_ORANGE; //c l y d e <333
+        Clyde_Color = ILI9340_ORANGE;*/ //c l y d e <333
     }
+    isFrightened  = 0;
     chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
  } // end of resetGhosts function
+
+
+
+// === MOVE GHOSTS TO TARGET TILE FUNCTION =====================================
+void moveGhosts(int ghost, int ghostX, int ghostY, int xTarget, int yTarget){
+    //initialize variables
+    int prevDir=prevGhostDir[ghost];
+    int currDir=currGhostDir[ghost];
+    int nextDir=nextGhostDir[ghost];
+    int oppDir;
+    int currXTile=(ghostX-8)/8;
+    int currYTile=(ghostY-16)/8;
+    int nextXPos, nextYPos;
+    int nextXTile, nextYTile;
+    int nextNextXTile, nextNextYTile;
+    //check which direction we are moving and move 1 pixel in that direction
+    if (currDir==1) { //up
+        //ghostY-=1;
+        yGhostPos[ghost]-=1;
+        if(prevDir==2 || prevDir==4){ //fix offset for turning
+            xGhostPos[ghost]=currXTile*8+8+4;
+        }
+    }
+    else if (currDir==2) { //left
+        //ghostX-=1;
+        xGhostPos[ghost]-=1;
+        if(prevDir==1 || prevDir==3){ //fix offset for turning
+            yGhostPos[ghost]=currYTile*8+16+4;
+        }
+    }
+    else if (currDir==3) { //down
+        //ghostY+=1;
+        yGhostPos[ghost]+=1;
+        if(prevDir==2 || prevDir==4){ //fix offset for turning
+            xGhostPos[ghost]=currXTile*8+8+4;
+        }
+    }
+    else if (currDir==4) { //right
+        //ghostX+=1;
+        xGhostPos[ghost]+=1;
+        if(prevDir==1 || prevDir==3){ //fix offset for turning
+            yGhostPos[ghost]=currYTile*8+16+4;
+        }
+    }
+    //calculate the tile we are in after moving 1 pixel
+    nextXTile=(xGhostPos[ghost]-8)/8;
+    nextYTile=(yGhostPos[ghost]-16)/8;
+    //only calculate for the next next tile if we have entered a new tile
+    if (nextXTile!=currXTile || nextYTile!=currYTile) {
+        //calculate the next tile based off the direction we are about to move in
+        nextXPos=xGhostPos[ghost];
+        nextYPos=yGhostPos[ghost];
+        if (nextDir==1) { //up
+            nextYPos-=8; 
+            oppDir=3;
+        }
+        else if (nextDir==2) { //left
+            nextXPos-=8;
+            oppDir=4;
+        }
+        else if (nextDir==3) { //down
+            nextYPos+=8;
+            oppDir=1;
+        }
+        else if (nextDir==4) { //right
+            nextXPos+=8;
+            oppDir=2;
+        }
+        
+        prevGhostDir[ghost]=currDir; //save current direction as previous direction
+        currGhostDir[ghost]=nextDir; //change current direction to predetermined next direction
+        
+        //Assess intended tile, check if tiles in the three potentially allowed directions are legal
+        // only three potentially legal tiles bc we cannot reverse directions 
+        int dirCounter;
+        float shortestDist=1000; //arbitrary large number
+        //loop through all directions
+        for (dirCounter=1;dirCounter<=4;dirCounter++){
+            short nextNextXPos=nextXPos;
+            short nextNextYPos=nextYPos;
+            //if this isn't the opposite direction, calculate next next x,y positions
+            if (dirCounter!=oppDir){ 
+                if (dirCounter==1){ //up
+                    nextNextYPos-=8;
+                }
+                else if (dirCounter==2){ //left
+                    nextNextXPos-=8;
+                }
+                else if (dirCounter==3){ //down
+                    nextNextYPos+=8;
+                }
+                else if (dirCounter==4){ //right
+                    nextNextXPos+=8;
+                }
+                nextNextXTile=(nextNextXPos-8)/8; //convert to tile
+                nextNextYTile=(nextNextYPos-16)/8;
+                if (map[nextNextYTile][nextNextXTile]==1){ //if the next tile is legal
+                    short xDist=abs(xTarget-nextNextXPos);
+                    short yDist=abs(yTarget-nextNextYPos);
+                    float dist=max(xDist,yDist)+min(xDist,yDist)*.4;
+                    if (dist<shortestDist){
+                        shortestDist=dist;
+                        nextGhostDir[ghost]=dirCounter;
+                    } //end if shortest distance
+                } //end if tile is legal
+            } //end if not the opposite direction
+        } //end for all directions loop
+    } //end if we are in new tile
+    //update all arrays
+    /*xGhostPos[ghost]=ghostX;
+    yGhostPos[ghost]=ghostY;
+    prevGhostDir[ghost]=prevDir;
+    currGhostDir[ghost]=currDir;
+    nextGhostDir[ghost]=nextDir;*/
+} // end moveGhosts
 
 // === ANIMATION THREAD==================================================== //
 // plots picman continuously in direction last set by GUI input
 // if ghosts in frighten mode, choose direction at intersection randomly
 // if ghosts in scatter mode, path logic according to home tile
 // if ghosts in chase mode, path logic according to target tile = f(picman's current tile)
-                              
+                        
 static PT_THREAD (protothread_animation (struct pt *pt)){
     PT_BEGIN(pt);
     while(1){
@@ -525,6 +684,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             if(dots[current_ytile][current_xtile]==1){ //if pacman passes through a new dot
                 score+=10; //then increase points
                 dotsMunched++;    //increase the dots counter that keeps track of when the maze is reset/level complete
+                global_ghost_timer = 0; //rest ghost timer if dot is eaten
                 
                 if(dotsMunched >= 70){
                     //fruit!!
@@ -575,6 +735,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
                 score+=50; // increase points 
                 dotsMunched++; //increase dots counter. max 244
+                isFrightened = 1;
                 if (dotsMunched == 244){ //check if maze was cleared
                     //characters pause and picman flashes
                     while (flashNum < 6) { //flashNum initialized to zero
@@ -598,15 +759,16 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 int i;
                 for (i=0;i<4;i++){ //trigger frighten mode
                     //if (ghostArray[i]!=0){ //if ghosts not in pen 
+                        //isFrightened = 1;
                         prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
                         ghostArray[i]=3; //doin me a frighten 
+                        ghostColors[i]=ILI9340_BLUE;
                     //}
                 }
-                
-                Blinky_Color = ILI9340_BLUE;
+                /*Blinky_Color = ILI9340_BLUE;
                 Pinky_Color = ILI9340_BLUE;
                 Inky_Color = ILI9340_BLUE;
-                Clyde_Color = ILI9340_BLUE;
+                Clyde_Color = ILI9340_BLUE;*/
                
                 //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
@@ -637,8 +799,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction; //set previous direction now because direction is updaed when GUI is changed
                 }
-                P_xtarget=xPacman-32; //4 tiles
-                P_ytarget=yPacman-32;
+                //pinky target tile
+                xTarget[1]=xPacman-32; //4 tiles
+                yTarget[1]=yPacman-32;
             }    
             else if ((direction==2) && (collisionFlag != 1)) { //left
                 xPacman-=1;
@@ -660,8 +823,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction;
                 }
-                P_xtarget=xPacman-32; //4 tiles
-                P_ytarget=yPacman;
+                //pinky target tile
+                xTarget[1]=xPacman-32; //4 tiles
+                yTarget[1]=yPacman;
             }
             else if ((direction==3)&&(collisionFlag != 1)) { //down
                 yPacman+=1;
@@ -678,8 +842,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction;
                 }
-                P_xtarget=xPacman; //4 tiles
-                P_ytarget=yPacman+32;
+                //pinky target tile
+                xTarget[1]=xPacman; //4 tiles
+                yTarget[1]=yPacman+32;
             }
             else if ((direction==4) && (collisionFlag != 1)) { //right
                 xPacman+=1;
@@ -701,12 +866,23 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     prevDirection=direction;
                 }
-                P_xtarget=xPacman+32; //4 tiles
-                P_ytarget=yPacman;
+                //pinky target tile
+                xTarget[1]=xPacman+32; //4 tiles
+                yTarget[1]=yPacman;
             }//end pac-man arrow key logic
+            
+            //////////////// GHOSTS ////////////////////////////
+            //save current positions and tiles before update
+            int aa;
+            for(aa=0;aa<4;aa++){
+                currXGhostPos[aa]=xGhostPos[aa];
+                currYGhostPos[aa]=yGhostPos[aa];
+                currXGhostTile[aa]=(currXGhostPos[aa]-8)/8;
+                currYGhostTile[aa]=(currYGhostPos[aa]-16)/8; 
+            }
     
             ////////////// BLINKY /////////////////////////////////////
-            int currentxBlinky = xBlinky; //pixel position
+            /*int currentxBlinky = xBlinky; //pixel position
             int currentyBlinky = yBlinky;
             int currentxPinky = xPinky;
             int currentyPinky = yPinky;
@@ -720,58 +896,86 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             int current_xItile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
             int current_yItile = (yPinky - 16)/8;
             
-            int new_xBtile; //to check if intended tile is legal
-            int new_yBtile; 
-            int new_xPtile; //to check if intended tile is legal
-            int new_yPtile; 
+            int nextnext_xBtile; //to check if intended tile is legal
+            int nextnext_yBtile; 
+            int nextnext_xPtile; //to check if intended tile is legal
+            int nextnext_yPtile; 
             
-            int xBlinkyNext=xBlinky;
-            int yBlinkyNext=yBlinky;
+            int xBlinkyNext;
+            int yBlinkyNext;
             int xPinkyNext=xPinky;
-            int yPinkyNext=yPinky;
+            int yPinkyNext=yPinky*/
             
             if (ghostArray[0] == 1){ //if blinky is in chase mode 
+                xTarget[0]=xPacman;
+                yTarget[0]=yPacman;
+                int ii;
+                for(ii=0;ii<1;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
+                    moveGhosts(ii, xGhostPos[ii], yGhostPos[ii], xTarget[ii], yTarget[ii]);
+                }
+                
             //blinky goes left at the start of the game 
             //if run into wall, or if next tile is dead space, then change directions 
-                if (Bdirection==1) { //up
+                /*if (Bdirection==1) { //up
                     yBlinky-=1;
-                    oppBDirection = 3; //down
-                    yBlinkyNext -= 8; // add 8 because we care about the next tile 
+                    //oppBDirection = 3; //down
+                    //yBlinkyNext -= 8; // add 8 because we care about the next tile 
                     if(prevBDirection == 2 || prevBDirection == 4){
                         xBlinky=current_xBtile*8+8+4;
                     }
                 }
                 else if (Bdirection==2) { //left
                     xBlinky-=1;
-                    oppBDirection = 4; //right
-                    xBlinkyNext -= 8; // add 8 because we care about the next tile 
+                    //oppBDirection = 4; //right
+                    //xBlinkyNext -= 8; // add 8 because we care about the next tile 
                     if (prevBDirection==1 || prevBDirection==3){//check if turned from left/right
                         yBlinky=current_yBtile*8+16+4;
                     }
                 }
                 else if (Bdirection==3) { //down
                     yBlinky+=1;
-                    oppBDirection = 1; //up
-                    yBlinkyNext += 8; // add 8 because we care about the next tile 
+                    //oppBDirection = 1; //up
+                    //yBlinkyNext += 8; // add 8 because we care about the next tile 
                     if (prevBDirection==2 || prevBDirection==4){//check if turned from left/right
                         xBlinky=current_xBtile*8+8+4;
                     }
                 }
                 else if (Bdirection==4) { //right
                     xBlinky+=1;
-                    oppBDirection = 2; //left
-                    xBlinkyNext += 8; // add 8 because we care about the next tile
+                    //oppBDirection = 2; //left
+                    //xBlinkyNext += 8; // add 8 because we care about the next tile
                     if (prevBDirection==1 || prevBDirection==3){//check if turned from left/right
                         yBlinky=current_yBtile*8+16+4;
                     }
                 }
+                xBlinkyNext=xBlinky;
+                yBlinkyNext=yBlinky;
+                if (bDirectionNext==1){
+                    yBlinkyNext -= 8;
+                    oppBDirection = 3;
+                }
+                else if (bDirectionNext==2){
+                    xBlinkyNext -= 8;
+                    oppBDirection = 4;
+                }
+                else if (bDirectionNext==3){
+                    yBlinkyNext += 8;
+                    oppBDirection = 1;
+                }
+                else if (bDirectionNext==4){
+                    xBlinkyNext += 8;
+                    oppBDirection = 2;
+                }
+                
                 int next_xBtile = (xBlinky-8)/8; //find blinky's tile to check collisions and intersection behavior
                 int next_yBtile = (yBlinky - 16)/8;
                 
                 //only calculate next tile if we havent yet
-                if ((next_xBtile!=current_xBtile || next_yBtile!=current_yBtile)){
-                    //new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
-                    //new_yBtile = ((yBlinkyNext-4) - 16)/8;
+                if (next_xBtile!=current_xBtile || next_yBtile!=current_yBtile){
+                    //nextnext_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
+                    //nextnext_yBtile = ((yBlinkyNext-4) - 16)/8;
+                    prevBDirection=Bdirection;
+                    Bdirection=bDirectionNext;
 
                     //Assess intended tile, check if tiles in the three potentially allowed directions are legal
                     // only three potentially legal tiles bc we cannot reverse directions 
@@ -796,113 +1000,38 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                             else if (ii==4) { //right
                                 xBlinkyNextNext += 8; // add 8 because we care about the next tile
                             }
-                            new_xBtile = (xBlinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
-                            new_yBtile = ((yBlinkyNextNext-4) - 16)/8;
-                            if(map[new_yBtile][new_xBtile] == 1){ //if the next intended tile is legal
+                            nextnext_xBtile = (xBlinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
+                            nextnext_yBtile = (yBlinkyNextNext - 16)/8;
+                            if(map[nextnext_yBtile][nextnext_xBtile] == 1){ //if the next intended tile is legal
                                 int x_dist = abs(xPacman - xBlinkyNextNext); //calculate dist to target
                                 int y_dist = abs(yPacman - yBlinkyNextNext);
                                 float dist = max(x_dist, y_dist) + min(x_dist, y_dist)*.4;
                                 if (dist<shortestDist) { //check which dir is shortest
                                     shortestDist=dist;
-                                    prevBDirection  = Bdirection;
-                                    tempBDirection=ii; //save direction
+                                    bDirectionNext=ii;
+                                    //prevBDirection  = Bdirection;
+                                    //tempBDirection=ii; //save direction
                                 }
                             }
                         } //end if != oppbdirection
                     } // end for loop for the four directions 
-                    Bdirection=tempBDirection;
+                    //Bdirection=tempBDirection;
                 } //end if not same tile
-                
-                if(PdotCounter == 1 || (lives < 3 && global_dotCounter >= 7)){
-                    xPinky = 120; //move pinky above pen when counter limit is reached
-                    yPinky = 130; 
+                */
+                //super long if
+                if((PdotCounter == 1 || (lives < 3 && global_dotCounter >= 7) 
+                        || (global_ghost_timer >= 4)) && ghostArray[1] == 0){
+                    
+                    xGhostPos[1] = 120; //move pinky above pen when counter limit is reached
+                    yGhostPos[1] = 132; 
                    
-                    current_xPtile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
-                    current_yPtile = (yPinky - 16)/8;
+                    //currXGhostTile[1] = (xGhostPos[1]-8)/8; //find pinky's tile to check collisions and intersection behavior
+                    //currYGhostTile[1] = (yGhostPos[1] - 16)/8;
+                    
                     PdotCounter = 2;
+                    global_ghost_timer = 0;
                     ghostArray[1] = ghostArray[0];
                 }  
-                
-                // *****PINKY********
-                if (Pdirection==1) { //up
-                    yPinky-=1;
-                    oppPDirection = 3; //down
-                    yPinkyNext -= 8; // add 8 because we care about the next tile 
-                    if(prevPDirection == 2 || prevPDirection == 4){
-                        xPinky=current_xPtile*8+8+4;
-                    }
-                }
-                else if (Pdirection==2) { //left
-                    xPinky-=1;
-                    oppPDirection = 4; //right
-                    xPinkyNext -= 8; // add 8 because we care about the next tile 
-                    if (prevPDirection==1 || prevPDirection==3){//check if turned from left/right
-                        yPinky=current_yPtile*8+16+4;
-                    }
-                }
-                else if (Pdirection==3) { //down
-                    yPinky+=1;
-                    oppPDirection = 1; //up
-                    yPinkyNext += 8; // add 8 because we care about the next tile 
-                    if (prevPDirection==2 || prevPDirection==4){//check if turned from left/right
-                        xPinky=current_xPtile*8+8+4;
-                    }
-                }
-                else if (Pdirection==4) { //right
-                    xPinky+=1;
-                    oppPDirection = 2; //left
-                    xPinkyNext += 8; // add 8 because we care about the next tile
-                    if (prevPDirection==1 || prevPDirection==3){//check if turned from left/right
-                        yPinky=current_yPtile*8+16+4;
-                    }
-                }
-                int next_xPtile = (xPinky-8)/8; //find blinky's tile to check collisions and intersection behavior
-                int next_yPtile = (yPinky - 16)/8;
-
-                //only calculate next tile if we havent yet
-                if (next_xPtile!=current_xPtile || next_yPtile!=current_yPtile){
-                    //new_xBtile = (xBlinkyNext-8)/8; //solve for intended tile
-                    //new_yBtile = ((yBlinkyNext-4) - 16)/8;
-
-                    //Assess intended tile, check if tiles in the three potentially allowed directions are legal
-                    // only three potentially legal tiles bc we cannot reverse directions 
-                    int ii;
-                    int tilesum; //if greater than 1, then there are multiple legal tiles available
-                    float nextnexttileDist [4]; //to check which of the three other directions are legal
-                    float shortestDist=1000;
-                    int tempPDirection;
-                    for (ii=1; ii<=4; ii++){
-                        int xPinkyNextNext=xPinkyNext;
-                        int yPinkyNextNext=yPinkyNext;
-                        if(ii != oppPDirection){
-                            if (ii==1) { //up
-                                yPinkyNextNext -= 8; // add 8 because we care about the next tile 
-                            }
-                            else if (ii==2) { //left
-                                xPinkyNextNext -= 8; // add 8 because we care about the next tile 
-                            }
-                            else if (ii==3) { //down
-                                yPinkyNextNext += 8; // add 8 because we care about the next tile 
-                            }
-                            else if (ii==4) { //right
-                                xPinkyNextNext += 8; // add 8 because we care about the next tile
-                            }
-                            new_xPtile = (xPinkyNextNext-8)/8; //solve for one of the three NEXT intended tiles
-                            new_yPtile = ((yPinkyNextNext) - 16)/8;
-                            if(map[new_yPtile][new_xPtile] == 1){ //if the next intended tile is legal
-                                int x_dist = abs(P_xtarget - xPinkyNextNext); //calculate dist to target
-                                int y_dist = abs(P_ytarget - yPinkyNextNext);
-                                float dist = max(x_dist, y_dist) + min(x_dist, y_dist)*.4;
-                                if (dist<shortestDist) { //check which dir is shortest
-                                    shortestDist=dist;
-                                    prevPDirection  = Pdirection;
-                                    tempPDirection=ii; //save direction
-                                }
-                            }
-                        } //end if != oppbdirection
-                    } // end for loop for the four directions 
-                    Pdirection=tempPDirection;
-                } //end if not same tile 
             } //end if chase mode 
 
            
@@ -934,7 +1063,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // though tbh i think all of the local var should be moved to the top of the animation thread
             //int currentxPinky = xPinky; //pixel position
             //int currentyPinky = yPinky;
-            currentxInky = xInky; //pixel position
+            /*currentxInky = xInky; //pixel position
             currentyInky = yInky;
             int currentxClyde = xClyde; //pixel position
             int currentyClyde = yClyde;
@@ -943,13 +1072,33 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             current_xItile = (xInky-8)/8; 
             current_yItile = (yInky - 16)/8;
             int current_xCtile = (xClyde-8)/8; 
-            int current_yCtile = (yClyde - 16)/8;
+            int current_yCtile = (yClyde - 16)/8;*/
             
             ////////// CHECK FOR COLLISIONS ////////////////////////////////
             // do this after tiles have been updated for all characters
             // could use for OR operators and do this all at once but realllllly long if condition 
-            
-            if(current_xtile == current_xBtile && current_ytile == current_yBtile){
+            int bb;
+            for(bb=0;bb<4;bb++) {
+                if (current_xtile==currXGhostTile[bb] && current_ytile==currYGhostTile[bb]){
+                    if(ghostArray[bb] != 3){ //if not in frighten mode
+                        lives -= 1; //lose a life rip
+                        // all characters pause and picman dies
+                        collisionFlag = 1;
+                    }
+                    else{ 
+                        ghostColors[bb] = ghostColorsInit[bb]; //when frighten mode triggered, blinky is set to blue. replot in red once Munched(tm)
+                        xGhostPos[bb] = xGhostPosInit[bb]; // plot blinky in OG position
+                        yGhostPos[bb] = yGhostPosInit[bb];
+                        prevGhostDir[bb]=2;
+                        currGhostDir[bb]=2;
+                        nextGhostDir[bb]=2;
+                        ghostsEaten++;
+                        score += 200 * ghostsEaten;
+                        ghostArray[bb] = prevState[bb]; // put him back in whatever mode he was in before being Frightened 
+                    }
+                }
+            }
+            /*if(current_xtile == current_xBtile && current_ytile == current_yBtile){
                 if(ghostArray[0] != 3){ //if not in frighten mode
                     lives -= 1; //lose a life rip
                     // all characters pause and picman dies
@@ -979,7 +1128,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     ghostArray[1] = prevState[1];
                     
                 }
-            } // end pinky collision check
+            }*/ // end pinky collision check
             
             // IF collision AND not in frighten mode
             // all characters pause, picman dies (flashing)
@@ -1049,16 +1198,23 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             
             
             tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
-            tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
+            tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman
+            
+            int cc;
+            for(cc=0;cc<4;cc++){
+                tft_fillCircle(currXGhostPos[cc],currYGhostPos[cc],2,ILI9340_BLACK); //erase ghost
+                tft_fillCircle(xGhostPos[cc],yGhostPos[cc],2,ghostColors[cc]); //plot new blinky
+            }
+            /*tft_fillCircle(currentxBlinky,currentyBlinky,2,ILI9340_BLACK); //erase blinky
             tft_fillCircle(currentxPinky,currentyPinky,2,ILI9340_BLACK); //erase pinky
             tft_fillCircle(currentxInky,currentyInky,2,ILI9340_BLACK); //erase inky
             tft_fillCircle(currentxClyde,currentyClyde,2,ILI9340_BLACK); //erase clyde rip loml
 
-            tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman              
+                          
             tft_fillCircle(xBlinky,yBlinky,2,Blinky_Color); //plot new blinky
             tft_fillCircle(xPinky,yPinky,2,Pinky_Color); //plot new pinky
             tft_fillCircle(xInky,yInky,2,Inky_Color); //plot new inky
-            tft_fillCircle(xClyde,yClyde,2,Clyde_Color); //plot new clyde! loml is back 
+            tft_fillCircle(xClyde,yClyde,2,Clyde_Color);*/ //plot new clyde! loml is back 
             
             //this is such a jank solution i hate it 
             if (gameOverFlag == 1){
@@ -1287,6 +1443,14 @@ void main(void) {
                 tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 3, ILI9340_WHITE);
         }
     }
+    
+    int num =0;
+    for(num=0; num < 15; num++){
+        frightPRNG[num] = (rand() % 3) + 1;
+        //sprintf(tft_str_buffer, "%d", frightPRNG[num]); //print new score
+        //tft_printLine(4, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK, 2);  
+    }
+    
     //initialize score counter
     sprintf(tft_str_buffer,"Score"); 
     tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
