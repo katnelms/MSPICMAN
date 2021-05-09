@@ -44,6 +44,10 @@
 #include "tft_master.h"
 #include "tft_gfx.h"
 
+////////////////////////////////////
+//including the header files for kats funcs
+#include "picman_funcs.h"
+
 //test comment for grace :)
 //test comment for grace part 2 :)
 //test comment for alvin :)
@@ -136,7 +140,7 @@ float flashCounter = 0; // to slow down animation speed of picman death
 int collisionFlag = 0; //set to high when a collision happens to pause characters
 int gameOverFlag = 0; //seems redundant bc we already have isStart but useful for plotting end of game, new game stuff
 int numLevels = 0; //how many levels have been cleared so far. Max? like 3 maybe? 
-
+int ghostsEaten = 0;
 
 // ogdots array exists to reset dots when the game is over but PIC not reset
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
@@ -593,10 +597,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 dots[current_ytile][current_xtile]=0; //store new dot value
                 int i;
                 for (i=0;i<4;i++){ //trigger frighten mode
-                    if (ghostArray[i]!=0){ //if ghosts not in pen 
+                    //if (ghostArray[i]!=0){ //if ghosts not in pen 
                         prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
                         ghostArray[i]=3; //doin me a frighten 
-                    }
+                    //}
                 }
                 
                 Blinky_Color = ILI9340_BLUE;
@@ -809,13 +813,14 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     Bdirection=tempBDirection;
                 } //end if not same tile
                 
-                if(PdotCounter == 1 || (lives < 3 && global_dotCounter == 7)){
+                if(PdotCounter == 1 || (lives < 3 && global_dotCounter >= 7)){
                     xPinky = 120; //move pinky above pen when counter limit is reached
-                    yPinky = 132; 
+                    yPinky = 130; 
                    
                     current_xPtile = (xPinky-8)/8; //find pinky's tile to check collisions and intersection behavior
                     current_yPtile = (yPinky - 16)/8;
                     PdotCounter = 2;
+                    ghostArray[1] = ghostArray[0];
                 }  
                 
                 // *****PINKY********
@@ -954,6 +959,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     Blinky_Color = ILI9340_RED; //when frighten mode triggered, blinky is set to blue. replot in red once Munched(tm)
                     xBlinky = 120; // plot blinky in OG position
                     yBlinky = 132;
+                    ghostsEaten++;
+                    score += 200 * ghostsEaten;
                     ghostArray[0] = prevState[0]; // put him back in whatever mode he was in before being Frightened 
                 }
             } // end blinky collision check
@@ -967,6 +974,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     Pinky_Color = ILI9340_PINK;
                     xPinky = 120;
                     yPinky = 132;
+                    ghostsEaten++;
+                    score+= 200*ghostsEaten;
                     ghostArray[1] = prevState[1];
                     
                 }
