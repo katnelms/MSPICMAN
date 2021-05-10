@@ -53,17 +53,6 @@
 //test comment for alvin :)
 //test comment for alvin p 2 :)
 
-// TO DO LIST (MIN REQS) ================================================= 
-// (1) add the moving PIC-man character, WASD control, and enforce dead space
-// (2) initialize basic maze and see if its visible on the TFT
-//      fix intersection plotting and save previous direction
-//      fixing dots array - change to mutable
-// (3) add a moving ghost, PICMAN is target tile 
-// (4) keep track of collisions and lost lives
-// (5) add the other ghosts  w personality path logic 
-// (6) add frighten mode w ghost return and release w appropriate counters
-// (7) game over screen, points counter and bonus fruit, adjust graphics
-
 // === INITIALIZE VARIABLES ==================================================
 
 // -------- timer stuff ----------------------------------------------------
@@ -83,10 +72,11 @@ char isStart;    //flag set once start button pressed on Python GUI
 int begin_time, check_time; //begin used in timer thread, check is to turn on LED as long as we meet animation requirement
 int global_dotCounter, PdotCounter, IdotCounter, CdotCounter; // these are all for ghost logic 
 int dotsMunched = 0; // maze is 244 dots, used when level is complete
-int fruitxtile, fruitytile; 
+static int fruitxtile  = (120-8)/8; //tile that the fruit is fixed, used to update dots array
+static int fruitytile = (179 - 16)/8;  
+int fruitflag, fruitCounter, numFruit;
 int global_ghost_timer;
 int ghost_dot_counter;
-
 
 // -------- character animation stuff ---------------------------------------
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
@@ -268,6 +258,7 @@ char ogdots[36][28] = { //hard code which legal space tiles have dots
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 }; 
+
 char prevGhostDir[4]={2,2,2,2};
 char currGhostDir[4]={2,2,2,2};
 char nextGhostDir[4]={2,2,2,2};
@@ -319,14 +310,12 @@ void __ISR(_TIMER_4_VECTOR, ipl2) Timer4Handler(void) {
    
 }// end 16bit ISR
 
-// === Timer Thread: CONTROLS GHOST MODES ======================================
+// === Timer Thread: CONTROLS GHOST MODES n FRUIT ==============================
 // update a 1 second tick counter
 static PT_THREAD (protothread_timer(struct pt *pt))
 {
     PT_BEGIN(pt);
-    //tft_setCursor(200, 15);
-    //tft_setTextColor(ILI9340_WHITE);  tft_setTextSize(2);
-    //tft_writeString("Time in seconds since boot\n");
+   
     while(1) {
         PT_YIELD_TIME_msec(1000); // yield time 1 second
         // chase timers reset after pacman loses a life
@@ -426,20 +415,22 @@ static PT_THREAD (protothread_timer(struct pt *pt))
                     ghostColors[i]=ghostColorsInit[i];
                 }
                 
-                /*Blinky_Color = ILI9340_RED;
-                Pinky_Color = ILI9340_PINK;
-                Inky_Color = ILI9340_CYAN;
-                Clyde_Color = ILI9340_ORANGE;*/
                 isFrightened =0;
                 frightTimer=0; //reset frighten timer 
                 
             }
         }
-        //tft_setCursor(200, 15);
-        //tft_write(sys_time_seconds);
-        //sprintf(tft_str_buffer,"%d", sys_time_seconds); 
-        //tft_printLine(1, 12, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK, 2);
-        //tft_printLine(18, 5, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+        
+        //check if fruit have been printed and if yes, count to 10s
+        if (isStart == 1 && fruitflag ==1){
+            fruitCounter ++; 
+            if (fruitCounter == 10){ //players have 10s to eat the fruit
+                fruitflag = 0; //fruit has been Munched
+                tft_fillCircle(120, 179, 3, ILI9340_BLACK); //remove the fruit
+                dots[fruitxtile][fruitytile] = 0;
+                fruitCounter = 0; //reset
+            }
+        }
     } // END WHILE(1)
     PT_END(pt);
 } // timer thread
@@ -450,6 +441,7 @@ void newlevel() {
     //reset counters
     numLevels++;
     dotsMunched = 0;
+    numFruit = 0;  
     global_dotCounter =0;
     PdotCounter = 0;
     IdotCounter = 0;
@@ -502,14 +494,14 @@ void resetMap() {
         resetGhosts(); 
 } // end map function
 
-// === RESET GHOSTS FUNCTION ========================================================
+// === RESET GHOSTS FUNCTION ===================================================
 void resetGhosts() {
     tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //remove pacman
     
     int z;
-    for(z=0;z<4;z++){ //remove the ghosts and reset to og location
-        tft_fillCircle(xGhostPos[z],yGhostPos[z],2,ILI9340_BLACK); 
-        xGhostPos[z]=xGhostPosInit[z];
+    for(z=0;z<4;z++){ //remove the ghosts and reset position to og location
+        tft_fillCircle(xGhostPos[z],yGhostPos[z],2,ILI9340_BLACK); //plot over ghosts
+        xGhostPos[z]=xGhostPosInit[z]; //put them back !!
         yGhostPos[z]=yGhostPosInit[z];
         prevGhostDir[z]=2;
         currGhostDir[z]=2;
@@ -553,7 +545,48 @@ void resetGhosts() {
     global_dotCounter = 0;
  } // end of resetGhosts function
 
-
+// === CHECK DOTS FUNCTION =====================================================
+// check if # dots Munched warrants a fruit or if the maze was cleared 
+void checkDots() {
+    //FRUIT ???
+    if(dotsMunched >= 10 && numFruit == 0){ //check that 70 dots have been eaten and first fruit hasnt been printed yet
+        //FRUIT!!
+        fruitflag = 1; //set to high until Fruit Munched (tm)
+        numFruit = 1; //
+        tft_fillCircle(120, 179, 3, ILI9340_RED); //cherries? lol
+        dots[fruitxtile][fruitytile] = 3; //set the dots array to a value thats not = small or big dot to keep track of when fruit is eaten
+    }//end if dotsMunched >= 70
+    
+    else if(dotsMunched >= 170 && numFruit == 1){ //check that 170 dots have been eaten and second fruit hasnt been printed yet
+        //fruit!!
+        fruitflag = 1; //set to high until Fruit Munched (tm)
+        numFruit = 2; //
+        tft_fillCircle(120, 179, 3, ILI9340_RED); 
+        dots[fruitxtile][fruitytile] = 3; //set the dots array to a value thats not = small or big dot to keep track of when fruit is eaten
+    }//end if dotsMunched >= 170
+    
+    if (dotsMunched == 244){ //check if maze was cleared
+        //characters pause and picman flashes
+        ii = 0; //slow down flashing
+        while (flashNum < 6) { //flashNum initialized to zero
+            if(flashFlag == 0 && ii == 1000000){ // plot over picman to flash   
+                tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //erase pic-man
+                flashFlag = 1; //set flag to high for next time through the loop
+                flashNum +=1;
+                ii = 0;
+            }
+            else if(flashFlag == 1 && ii == 1000000){ // replot picman to flash
+                tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //erase pic-man
+                flashFlag = 0; //set flag to 0 for next time through the loop
+                flashNum +=1;
+                ii = 0;
+            } 
+            ii++;
+        } // end while
+        flashNum = 0;
+        newlevel();
+    } //end if maze cleared
+} // end check dots function
 
 // === MOVE GHOSTS TO TARGET TILE FUNCTION =====================================
 void moveGhosts(int ghost, int ghostX, int ghostY, int xTarget, int yTarget){
@@ -778,6 +811,8 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
         } //end for all directions loop
     } //end if we are in new tile
 }
+
+
 // === ANIMATION THREAD==================================================== //
 // plots picman continuously in direction last set by GUI input
 // if ghosts in frighten mode, choose direction at intersection randomly
@@ -806,6 +841,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 score+=10; //then increase points
                 dotsMunched++;    //increase the dots counter that keeps track of when the maze is reset/level complete
                 global_ghost_timer = 0; //rest ghost timer if dot is eaten
+                checkDots(); // check for fruit of if the maze was cleared 
+                
+                //move ghosts out of pen based on dots eaten
                 if(lives == 3){ //if 1 life lost, switch to global dot counter
                     if(PdotCounter < 1){ //dot counter limits for each ghost - blinkys is zero
                         PdotCounter++;
@@ -821,61 +859,16 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     global_dotCounter++;
                 }
                 
-                if(dotsMunched >= 70){
-                    //fruit!!
-                    //fruitflag = 1;
-                    tft_fillCircle(120, 176, 3, ILI9340_RED); //cherries? lol
-                    fruitxtile = (120-8)/8; //we centered the maze on the TFT. subtract centering offset and divide by 8 to get tile
-                    fruitytile = (176 - 16)/8; 
-                    //dots[fruitxtile]
-
-                }
-                if (dotsMunched == 244){
-                    //characters pause and picman flashes
-                    while (flashNum < 6) { //flashNum initialized to zero
-                        PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
-                            if(flashFlag == 0){ // plot over picman to flash   
-                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
-                                flashFlag = 1; //set flag to high for next time through the loop
-                                flashNum +=1;
-                            }
-                            else if(flashFlag == 1){ // replot picman to flash
-                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_YELLOW); //erase pic-man
-                                flashFlag = 0; //set flag to 0 for next time through the loop
-                                flashNum +=1;
-                            } 
-                    } // end while
-                    flashNum = 0;
-                    newlevel();
-                    
-                }
-                
                 dots[current_ytile][current_xtile]=0; //note that the dot is gone by updating array
                 sprintf(tft_str_buffer,"%d", score); //print new score
                 tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);        
-            }
+            } // end if current tile contains a small dot
+            
             else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
                 score+=50; // increase points 
                 dotsMunched++; //increase dots counter. max 244
                 isFrightened = 1;
-                if (dotsMunched == 244){ //check if maze was cleared
-                    //characters pause and picman flashes
-                    while (flashNum < 6) { //flashNum initialized to zero
-                        PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
-                            if(flashFlag == 0){ // plot over picman to flash   
-                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
-                                flashFlag = 1; //set flag to high for next time through the loop
-                                flashNum +=1;
-                            }
-                            else if(flashFlag == 1){ // replot picman to flash
-                                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_YELLOW); //erase pic-man
-                                flashFlag = 0; //set flag to 0 for next time through the loop
-                                flashNum +=1;
-                            } 
-                    } // end while
-                    flashNum = 0;
-                    newlevel();
-                }
+                checkDots(); // check if fruit or if maze cleared  
                 
                 dots[current_ytile][current_xtile]=0; //store new dot value
                 int i;
@@ -888,6 +881,13 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
                 sprintf(tft_str_buffer,"%d", score); //print new score
                 tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2); 
+            } // end if current tile contains big dot
+            
+            else if (dots[current_ytile][current_xtile]==3){ //if current tile contains a fruit
+                score+=100; // cherries for level1 worth 100pts 
+                fruitflag = 0; //fruit has been Munched
+                tft_fillCircle(120, 179, 3, ILI9340_BLACK); //remove the fruit
+                dots[fruitxtile][fruitytile] = 0;
             }
 
             // ------ PLOT MsPICMAN ------------------------------------------
