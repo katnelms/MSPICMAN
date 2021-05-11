@@ -47,6 +47,7 @@
 ////////////////////////////////////
 //including the header files for kats funcs
 #include "picman_funcs.h"
+#include <stdlib.h>
 
 //test comment for grace :)
 //test comment for grace part 2 :)
@@ -77,6 +78,7 @@ static int fruitytile = (179 - 16)/8;
 int fruitflag, fruitCounter, numFruit;
 int global_ghost_timer;
 int ghost_dot_counter;
+
 
 // -------- character animation stuff ---------------------------------------
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
@@ -119,7 +121,6 @@ short yTarget[4];
 
 int ghostColors[4]={ILI9340_RED,ILI9340_PINK,ILI9340_CYAN,ILI9340_ORANGE};
 int ghostColorsInit[4]={ILI9340_RED,ILI9340_PINK,ILI9340_CYAN,ILI9340_ORANGE};
-int frightPRNG[15];
 
 /*int Blinky_Color = ILI9340_RED;
 int Pinky_Color = ILI9340_PINK;
@@ -141,7 +142,7 @@ char isFrightened = 0; // 0 is not frightened, 1 is scary
 char isChase=0;
 char isScatter=1;
 
-
+int seed_counter;
 
 // ogdots array exists to reset dots when the game is over but PIC not reset
 const char map[36][28]={ //hard code dead space and legal spaceTILES oof
@@ -259,9 +260,51 @@ char ogdots[36][28] = { //hard code which legal space tiles have dots
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 }; 
 
+char intersect_check[36][28] ={ 
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,4,1,1,1,1,4,1,1,1,1,1,4,0,0,4,1,1,1,1,1,4,1,1,1,1,4,0},
+    {0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0},
+    {0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0}, 
+    {0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0}, 
+    {0,4,1,1,1,1,4,1,1,4,1,1,4,1,1,4,1,1,4,1,1,4,1,1,1,1,4,0},
+    {0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0},
+    {0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0},
+    {0,4,1,1,1,1,4,0,0,4,1,1,4,0,0,4,1,1,4,0,0,4,1,1,1,1,4,0},
+    {0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,4,1,1,4,1,1,4,1,1,4,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,1,0,1,1,1,1,1,1,0,1,0,0,1,0,0,0,0,0,0},
+    {1,1,1,1,1,1,4,1,1,4,0,1,1,1,1,1,1,0,4,1,1,4,1,1,1,1,1,1},
+    {0,0,0,0,0,0,1,0,0,1,0,1,1,1,1,1,1,0,1,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,4,1,1,1,1,1,1,1,1,4,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0},
+    {0,4,1,1,1,1,4,1,1,4,1,1,4,0,0,4,1,1,4,1,1,4,1,1,1,1,4,0},
+    {0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0},
+    {0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0},
+    {0,4,1,4,0,0,4,1,1,4,1,1,4,1,1,4,1,1,4,1,1,4,0,0,4,1,4,0},
+    {0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0},
+    {0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0},
+    {0,4,1,4,1,1,4,0,0,4,1,1,4,0,0,4,1,1,4,0,0,4,1,1,4,1,4,0},
+    {0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0},
+    {0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0},
+    {0,4,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,4,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+    }; //ew 
+
+
 char prevGhostDir[4]={2,2,2,2};
 char currGhostDir[4]={2,2,2,2};
 char nextGhostDir[4]={2,2,2,2};
+char oppGhostDir[4] = {4,4,4,4};
+char  frightStart[4] = {0, 0, 0, 0};
 short xGhostPos[4]={120,120,104,136};
 short yGhostPos[4]={132,156,156,156};
 short xGhostPosInit[4]={120,120,104,136};
@@ -549,7 +592,7 @@ void resetGhosts() {
 // check if # dots Munched warrants a fruit or if the maze was cleared 
 void checkDots() {
     //FRUIT ???
-    if(dotsMunched >= 10 && numFruit == 0){ //check that 70 dots have been eaten and first fruit hasnt been printed yet
+    if(dotsMunched >= 70 && numFruit == 0){ //check that 70 dots have been eaten and first fruit hasnt been printed yet
         //FRUIT!!
         fruitflag = 1; //set to high until Fruit Munched (tm)
         numFruit = 1; //
@@ -708,13 +751,42 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
     //initialize variables
     int prevDir=prevGhostDir[ghost];
     int currDir=currGhostDir[ghost];
-    int nextDir=nextGhostDir[ghost];
+    int nextDir=0;//nextGhostDir[ghost];
     int oppDir;
     int currXTile=(ghostX-8)/8;
     int currYTile=(ghostY-16)/8;
     int nextXPos, nextYPos;
     int nextXTile, nextYTile;
     int nextNextXTile, nextNextYTile;
+    
+    //printf("in func");
+    
+    //step 1: reverse direction when we enter frighten mode
+    if(frightStart[ghost] == 1){
+        if(currGhostDir[ghost] == 1){
+            currGhostDir[ghost] = 3;
+            prevGhostDir[ghost] = 3;
+            //nextGhostDir[ghost] = 3;
+        }
+        else if(currGhostDir[ghost] == 2){
+            currGhostDir[ghost] = 4;
+            prevGhostDir[ghost] = 4;
+            //nextGhostDir[ghost] = 4;
+        }
+        else if(currGhostDir[ghost] == 3){
+            currGhostDir[ghost] = 1;
+            prevGhostDir[ghost] = 1;
+            //nextGhostDir[ghost] = 1;
+        }
+        else{
+            currGhostDir[ghost] = 2;
+            prevGhostDir[ghost] = 2;
+            //nextGhostDir[ghost] = 2;
+        }
+        frightStart[ghost] =0;
+    }
+    
+   
     //check which direction we are moving and move 1 pixel in that direction
     if (currDir==1) { //up
         yGhostPos[ghost]-=1;
@@ -746,12 +818,44 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
             yGhostPos[ghost]=currYTile*8+16+4;
         }
     }
+    
+    nextXPos=xGhostPos[ghost];
+    nextYPos=yGhostPos[ghost];
+   
+    if (prevDir==1) { //up
+        nextYPos-=8; 
+        oppDir=3;
+    }
+    else if (prevDir==2) { //left
+        nextXPos-=8;
+        if (nextXPos<8){
+            nextXPos=231;
+        }
+        oppDir=4;
+    }
+    else if (prevDir==3) { //down
+        nextYPos+=8;
+        oppDir=1;
+    }
+    else if (prevDir==4) { //right
+        nextXPos+=8;
+        if (nextXPos>230){
+            nextXPos=9;
+        }
+        oppDir=2;
+    }
+
+    int lastXTile=(nextXPos-8)/8;
+    int lastYTile=(nextYPos-16)/8;
+    
+    
+    
     //calculate the tile we are in after moving 1 pixel
-    nextXTile=(xGhostPos[ghost]-8)/8;
-    nextYTile=(yGhostPos[ghost]-16)/8;
+    //nextXTile=(xGhostPos[ghost]-8)/8;
+    //nextYTile=(yGhostPos[ghost]-16)/8;
     //only calculate for the next next tile if we have entered a new tile
-    if (nextXTile!=currXTile || nextYTile!=currYTile) {
-        //calculate the next tile based off the direction we are about to move in
+    if (lastXTile!=currXTile || lastYTile!=currYTile) {
+       //calculate the next tile based off the direction we are about to move in
         nextXPos=xGhostPos[ghost];
         nextYPos=yGhostPos[ghost];
         if (nextDir==1) { //up
@@ -782,8 +886,9 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
         
         //Assess intended tile, check if tiles in the three potentially allowed directions are legal
         // only three potentially legal tiles bc we cannot reverse directions 
-        int dirCounter;
-        int validDirs[4];
+        int dirCounter =1;
+        int index = 0;
+        int validDirs[4] = {0,0,0,0}; 
         //loop through all directions
         for (dirCounter=1;dirCounter<=4;dirCounter++){
             short nextNextXPos=nextXPos;
@@ -804,13 +909,42 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
                 }
                 nextNextXTile=(nextNextXPos-8)/8; //convert to tile
                 nextNextYTile=(nextNextYPos-16)/8;
-                if (map[nextNextYTile][nextNextXTile]==1){ //if the next tile is legal
-                    validDirs[dirCounter-1]=1;
-                } //end if tile is legal
-            } //end if not the opposite direction
-        } //end for all directions loop
-    } //end if we are in new tile
-}
+                if (map[nextNextYTile][nextNextXTile]==1){ //if the next tile is legal 
+                    validDirs[index] = 1;
+                }//if legal tile
+                index++;
+            }//end if not opp dir
+        }//end for loop   
+        
+        //printf("valid dirs[1] %d\n", validDirs[0]);
+        //printf("valid dirs[2] %d\n", validDirs[1]);
+        //printf("valid dirs[3] %d\n", validDirs[2]);
+        //printf("valid dirs[4] %d\n", validDirs[3]);
+        
+        
+        
+        int rand_numb = (rand() % 2) + 1;
+        //printf("rand numb  = %d\n", rand_numb);
+        int map_counter = 0;
+        int rr =0;;
+        nextGhostDir[ghost] = 0;
+        while(nextGhostDir[ghost]==0){
+            //printf("in while");
+            if (validDirs[rr] != 0){
+                map_counter++;
+                if (map_counter == rand_numb) {
+                    //prevGhostDir[ghost]=currDir; //save current direction as previous direction
+                    //currGhostDir[ghost]=nextDir; //change current direction to predetermined next direction
+                    nextGhostDir[ghost] = rr + 1;
+                }//end if map counter
+            }//end if valid dir
+            rr++;
+            if(rr == 3){
+                rr =0;
+            }
+        } //end while loop
+   }//end if not current tile
+}//end function
 
 
 // === ANIMATION THREAD==================================================== //
@@ -868,15 +1002,22 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 score+=50; // increase points 
                 dotsMunched++; //increase dots counter. max 244
                 isFrightened = 1;
+                
+                //isScatter = 0;
+                //isChase = 0;
                 checkDots(); // check if fruit or if maze cleared  
                 
                 dots[current_ytile][current_xtile]=0; //store new dot value
                 int i;
                 for (i=0;i<4;i++){ //trigger frighten mode
-                    prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
-                    ghostArray[i]=3; //doin me a frighten 
+                    if(ghostArray[i] != 0){
+                        prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
+                        ghostArray[i]=3; //doin me a frighten
+                        frightStart[i] = 1;
+                    }
                     ghostColors[i]=ILI9340_BLUE;
                 }
+                //printf("isFrightened value  = %d \n", isFrightened);
                 //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
                 sprintf(tft_str_buffer,"%d", score); //print new score
@@ -982,7 +1123,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 currXGhostTile[aa]=(currXGhostPos[aa]-8)/8;
                 currYGhostTile[aa]=(currYGhostPos[aa]-16)/8; 
             }
-            //super long if
+            ///////PINY///////
             if((PdotCounter == 1 || (lives < 3 && global_dotCounter == 7) 
                     || (global_ghost_timer >= 4)) && ghostArray[1] == 0){
 
@@ -1021,6 +1162,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             //ghost modes
             if (isChase==1){ //if in chase mode 
                 //blinky target tile
+                //printf("in chase");
                 xTarget[0]=currentxPacman;
                 yTarget[0]=currentyPacman;
                 if (direction==1 && collisionFlag!=1){ //up
@@ -1092,6 +1234,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 } 
             }
             else if (isScatter==1){
+                //printf("in scatter");
                 xTarget[0]=208;//tile (25,0)
                 yTarget[0]=16;
                 xTarget[1]=24;//tile (2,0)
@@ -1104,6 +1247,16 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 for(ii=0;ii<4;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
                     if (ghostArray[ii]!=3 && ghostArray[ii]!=0){
                         moveGhosts(ii, xGhostPos[ii], yGhostPos[ii], xTarget[ii], yTarget[ii]);
+                    }
+                }
+            }
+            
+            if(isFrightened == 1){
+                int ii;
+                for(ii=0;ii<1;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
+                    if (ghostArray[ii]==3 && ghostArray[ii]!=0){
+                        //printf("in fright if\n");
+                        moveGhostsFrightenMode(ii, xGhostPos[ii], yGhostPos[ii]);
                     }
                 }
             }
@@ -1139,7 +1292,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // ghosts are reset, timer for ghost modes is reset 
             if (collisionFlag == 1){   //if collision occurs, animate death and replot   
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
-               
+                printf("in collision if /n");
                 while (flashNum < 8) { //flashNum initialized to zero
                     PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
                     if(flashFlag == 0){ // plot over picman to flash
@@ -1237,7 +1390,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
         check_time = PT_GET_TIME() - begin_time; //checks if more than 32 msec has passed
         if(check_time > 32){
             mPORTAClearBits(BIT_0); // turn off LED if below 30FPS
-            printf("rip");
+            //printf("rip");
         }
         else{
             mPORTASetBits(BIT_0); // turn LED on IF we meet 30FPS 
@@ -1290,10 +1443,12 @@ static PT_THREAD (protothread_arrows(struct pt *pt))
     PT_BEGIN(pt);
     while(1){
         PT_YIELD_UNTIL(pt, new_arrow==1);
+        seed_counter++;
         // clear flag
         new_arrow = 0;  
         if (arrow_value==1){
             direction = arrow_id;
+            srand(seed_counter);
             //printf("%d",direction);
         }
         //tft_fillCircle(280,200,5,ILI9340_MAGENTA);
@@ -1454,12 +1609,7 @@ void main(void) {
         }
     }
     
-    int num =0;
-    for(num=0; num < 15; num++){
-        frightPRNG[num] = (rand() % 3) + 1;
-        //sprintf(tft_str_buffer, "%d", frightPRNG[num]); //print new score
-        //tft_printLine(4, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK, 2);  
-    }
+    
     
     //initialize score counter
     sprintf(tft_str_buffer,"Score"); 
