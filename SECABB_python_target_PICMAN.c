@@ -67,14 +67,11 @@ int TIMEOUT4 = 40000000/40000; // = 1000 msec so the 16bit isr triggered 1 per s
 // At the start of a level or after losing a life, ghosts emerge from the ghost 
 // pen already in the first of the four scatter modes.
 // scatter mode lasts 7s for instance 1,2 and 5 s for instance 3,4
-int chaseTimer;  //switch to scatter mode once chase timer is above 20s, 4x per level
-int frightTimer; //triggered when PICMAN eats Big Dots
 char isStart;    //flag set once start button pressed on Python GUI
 int begin_time, check_time; //begin used in timer thread, check is to turn on LED as long as we meet animation requirement
 int global_dotCounter, PdotCounter, IdotCounter, CdotCounter; // these are all for ghost logic 
 int global_ghost_timer;
 int ghost_dot_counter;
-
 
 // -------- character animation stuff ---------------------------------------
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
@@ -110,6 +107,8 @@ short currXGhostTile[4];
 short currYGhostTile[4];
 
 //ghost mode stuff
+int chaseTimer;  //switch to scatter mode once chase timer is above 20s, 4x per level
+int frightTimer; //triggered when PICMAN eats Big Dots
 int ghostsEaten = 0;
 char isFrightened = 0; // 0 is not frightened, 1 is scary
 char isChase=0;
@@ -460,6 +459,9 @@ static PT_THREAD (protothread_timer(struct pt *pt))
  * dont bother trying to figure out which of the 9 tiles in the OG still have dots
  * keep map and ghost logic unchanged, just invisible */
 void level_256_bug(){
+    tft_fillRect((short) (110), (short) (0), (short) 150, (short) 320, ILI9340_BLACK);
+    sprintf(tft_str_buffer,"Score"); 
+    tft_printLine(1, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
     bug256flag = 1; //set to high so animation thread only plots on LHS of screen 
     tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW);
     direction = 5; //not WASD so picman stops moving
@@ -473,9 +475,9 @@ void level_256_bug(){
             dots[ii][jj] = 0;  //clear dots 
     }
     
-    char tiles [2][2] = {{'P','N'},{'D','M'}};
-    char colors [2][2] = {{'O','P'},{'B','W'}};
-    /*
+    //char tiles [2][2] = {{'P','\"'},{'D','M'}};
+    //char colors [2][2] = {{'O','P'},{'B','W'}};
+    
      char tiles[32][16] = { //hard code char data to be printed for 256 bug 
         {'P','N','X','G','X','X','I','M','X','0','X','X','X','0','X','X'}, 
         {'Q','O','X','H','X','X','J','N','X','1','X','X','X','1','X','X'}, 
@@ -543,22 +545,22 @@ void level_256_bug(){
         {'W','W','B','P','P','Y','L','L','L','B','O','L','P','B','Y','B'},
         {'B','B','B','B','P','Y','L','L','L','B','O','L','P','B','B','B'},
         {'B','B','B','B','P','Y','L','L','L','B','O','L','P','B','B','B'}};
-     */
+     
     int tileColor;
 
     //map and ghosts have already been reset, need to plot over the RHS of the screen 
     //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
     // first line 
     
-    for(ii =0; ii < 2; ii++){ //28x36 tile grid, all rows
-        for(jj = 0; jj < 2; jj++){ //only columns on rhs, go from 14 to 28
+    for(ii =0; ii < 32; ii++){ //28x36 tile grid, all rows
+        for(jj = 0; jj < 14; jj++){ //only columns on rhs, go from 14 to 28
              
             //sort through colors array to get color of the tile to be plotted
             int tempcolor = colors[ii][jj];
             if (tempcolor == 'O'){ 
                 tileColor = ILI9340_ORANGE;
             }
-            else if (tempcolor == 'B'){
+            else if (tempcolor == 'B'){ //these are swapped because most of our maze is actually blue deadspace and not black
                 tileColor = ILI9340_BLACK;
             }
             else if (tempcolor == 'L'){
@@ -584,9 +586,11 @@ void level_256_bug(){
             //print 256 bug screen at the tile specified by ii,jj
             if(tiles[ii][jj] == 'X'){ //then print a solid color box 
                     sprintf(tft_str_buffer,"X"); //print sth that takes up an 8x8 tile
-                    tft_printLine(ii+YOFFSET, jj+XOFFSET, tft_str_buffer, tileColor, tileColor,1);
+                    tft_printLine(ii+YOFFSET, jj+XOFFSET, tft_str_buffer, tileColor, tileColor,2);
             }
             else if(tiles[ii][jj] == 'V'){ //VOID SPACE, dont print anything
+                sprintf(tft_str_buffer,"VOID"); //print sth that takes up an 8x8 tile
+                    //tft_printLine(1, 1, tft_str_buffer, tileColor, ILI9340_BLACK,1);
                     continue;
             }
             else if(tiles[ii][jj] == 'D'){ //print a dot
@@ -1439,6 +1443,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                    //might make sense to put them in the button thread but like "if isStart !=1 already" so game doesnt break
                    gameOverFlag = 1;
                    isStart = 0; //but we still finish this time through the loop so ghosts r animated one last time 
+                   bug256flag = 0;
                    lives = 3;   //update now for when the map is reset in 2s
                    score = 0;
                    //dots = 0;
