@@ -134,7 +134,8 @@ float flashCounter = 0; // to slow down animation speed of picman death
 int collisionFlag = 0; //set to high when a collision happens to pause characters
 int gameOverFlag = 0; //seems redundant bc we already have isStart but useful for plotting end of game, new game stuff
 int numLevels, bug256flag; //how many levels have been cleared so far. Max? like 3 maybe? 
-int dotsMunched = 0; // maze is 244 dots, used when level is complete
+int darkSide[5];
+int dotsMunched = 220; // maze is 244 dots, used when level is complete
 static int fruitxtile  = (120-8)/8; //tile that the fruit is fixed, used to update dots array
 static int fruitytile = (179 - 16)/8;  
 int fruitflag, fruitCounter, numFruit;
@@ -321,7 +322,7 @@ void tft_printLine(int line_number, int indent, char* print_buffer, short text_c
     char_size = (char_size>0)? char_size : 1 ;
     //
     v_pos = line_number * 8 * char_size ;
-    h_pos = indent * 6 * char_size ;
+    h_pos = indent * 8 * char_size ;
     // erase the pixels
     //tft_fillRoundRect(0, v_pos, 239, 8, 1, back_color);// x,y,w,h,radius,color
     tft_setTextColor2(text_color, back_color); 
@@ -440,9 +441,7 @@ static PT_THREAD (protothread_timer(struct pt *pt))
         }
         else if (isStart==1 && isFrightened == 1){ // if game is started and blinky is in frightened
             frightTimer++; //increment timer that keeps track of how long we've been in frighten mode
-            int i;
-            //sprintf(tft_str_buffer, "%d", frightTimer); //print new score
-           // tft_printLine(4, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK, 2);  
+            int i; 
             if (frightTimer>6) { //frighten mode lasts 6s
                 for (i=0;i<4;i++){
                     //if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
@@ -487,7 +486,7 @@ void newlevel() {
     //reset map and the kids
     resetMap();
     resetGhosts();
-    if(numLevels == 3){
+    if(numLevels == 1){
         level_256_bug();
     }
 }
@@ -538,9 +537,9 @@ void resetMap() {
         
     //initialize score counter
     sprintf(tft_str_buffer,"Score"); 
-    tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    tft_printLine(1, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
     sprintf(tft_str_buffer,"%d", score); 
-    tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    tft_printLine(2, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
     
     //replot lives 
     //this thread is called in between levels so cant necessarily just replot all 3 lives
@@ -990,7 +989,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 
                 dots[current_ytile][current_xtile]=0; //note that the dot is gone by updating array
                 sprintf(tft_str_buffer,"%d", score); //print new score
-                tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);        
+                tft_printLine(2, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);        
             } // end if current tile contains a small dot
             
             else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
@@ -1016,7 +1015,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
                 sprintf(tft_str_buffer,"%d", score); //print new score
-                tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2); 
+                tft_printLine(2, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2); 
             } // end if current tile contains big dot
             
             else if (dots[current_ytile][current_xtile]==3){ //if current tile contains a fruit
@@ -1325,7 +1324,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                     
                    //PRINT GAME OVER
-                   sprintf(tft_str_buffer, " GAME OVER");  //sucks2suck
+                   sprintf(tft_str_buffer, "GAME OVER");  //sucks2suck
                    tft_printLine(3, 0, tft_str_buffer, ILI9340_BLUE, ILI9340_BLACK,4);    
                    PT_YIELD_TIME_msec(1000); 
                    
@@ -1351,19 +1350,23 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             
             // START COPY N PASTE HERE
             if (bug256flag == 1){ // if we're on the level that replicates the 256 bug
-                //erase all characters
-                tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); 
                 int cc;
-                for(cc=0;cc<4;cc++){
-                    tft_fillCircle(currXGhostPos[cc],currYGhostPos[cc],2,ILI9340_BLACK); //erase ghost
-                }
-
-                //but only replot them if on LHS of screen 
-                if(xPacman < 120){
+                
+                //erase all characters at the instant that they go to the dark side
+                //and only replot them if on LHS of screen 
+                if(xPacman < 120){ //if on LHS
+                    darkSide[4] = 0;
+                    tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase old picman
                     tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman
                 }
+                else if(xPacman > 120 && darkSide[4] == 0){ //if pacman just crossed over 
+                    tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase old picman
+                    darkSide[4] = 1; //set flag high so black circle isn't replotted 
+                }
                 for(cc=0;cc<4;cc++){
-                    if(currXGhostPos[cc] < 120){
+                    if(currXGhostPos[cc] < 120){ //plot normally if on LHS
+                        darkSide[cc] = 0;
+                        tft_fillCircle(currXGhostPos[cc],currYGhostPos[cc],2,ILI9340_BLACK); //erase ghost
                         if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==1){
                             tft_drawPixel((short)(12 + currXGhostTile[cc]*8), (short) (20 + currYGhostTile[cc]*8), ILI9340_WHITE);
                         }
@@ -1372,10 +1375,13 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         }
                         tft_fillCircle(xGhostPos[cc],yGhostPos[cc],2,ghostColors[cc]); //plot new ghost
                     }
-                }
-
-            }
-            else{
+                    else if(currXGhostPos[cc] > 120 && darkSide[cc]==0){
+                        tft_fillCircle(currXGhostPos[cc],currYGhostPos[cc],2,ILI9340_BLACK); //erase ghost
+                        darkSide[cc] = 1;
+                    }
+                }// end ghost for loop
+            }//end if bug256flag == 1
+            else {
                 tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
                 tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman
                 
@@ -1646,9 +1652,9 @@ void main(void) {
     
     //initialize score counter
     sprintf(tft_str_buffer,"Score"); 
-    tft_printLine(1, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    tft_printLine(1, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
     sprintf(tft_str_buffer,"%d", score); 
-    tft_printLine(2, 8, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
+    tft_printLine(2, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2);
     
     //initialize lives 
     tft_fillCircle(24,290,5,ILI9340_YELLOW); //whenlives are lost, plot over them from R to L
