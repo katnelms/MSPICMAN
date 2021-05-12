@@ -218,6 +218,7 @@ char dots[36][28] = { //hard code which legal space tiles have dots
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
+
 char ogdots[36][28] = { //hard code which legal space tiles have dots 
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -505,7 +506,62 @@ void level_256_bug(){
         for(jj = 14; jj < 28; jj++) //only columns on rhs
             dots[ii][jj] = 0;  //clear dots 
     }
-    
+    char tiles [2][2] = {{'P','N'},{'X','D'}};
+    char colors [2][2] = {{'O','P'},{'L','B'}};
+    int tileColor;
+
+    //map and ghosts have already been reset, need to plot over the RHS of the screen 
+    //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
+    // first line 
+    for(ii =0; ii < 2; ii++){ //28x36 tile grid, all rows
+        for(jj = 0; jj < 2; jj++){ //only columns on rhs, go from 14 to 28
+             sprintf(tft_str_buffer,"%c",tiles[ii][jj]); //print sth that takes up an 8x8 tile
+             tft_printLine(ii, jj, tft_str_buffer, tileColor, tileColor,5);
+            //sort through colors array to get color of the tile to be plotted
+            if (colors[ii][jj] == 'O'){ 
+                tileColor = ILI9340_ORANGE;
+            }
+            else if (colors[ii][jj] == 'B'){
+                tileColor = ILI9340_BLACK;
+            }
+            else if (colors[ii][jj] == 'L'){
+                tileColor = ILI9340_BLUE;
+            }
+            else if (colors[ii][jj] == 'P'){
+                tileColor = ILI9340_PINK;
+            }
+            else if (colors[ii][jj] == 'R'){
+                tileColor = ILI9340_RED;
+            }
+            else if (colors[ii][jj] == 'Y'){
+                tileColor = ILI9340_YELLOW;
+            }
+            else if (colors[ii][jj] == 'W'){
+                tileColor = ILI9340_WHITE;
+            }
+            //else (colors[ii][jj] == 'G'){
+            else{
+                tileColor = ILI9340_GREEN;
+            }
+
+
+            //print 256 bug screen at the tile specified by ii,jj
+            if(tiles[ii][jj] == 'X'){ //then print a solid color box 
+                    sprintf(tft_str_buffer,"X"); //print sth that takes up an 8x8 tile
+                    tft_printLine(ii, jj, tft_str_buffer, tileColor, tileColor,1);
+            }
+            else if(tiles[ii][jj] == 'V'){ //VOID SPACE, dont print anything
+                    continue;
+            }
+            else if(tiles[ii][jj] == 'D'){ //print a dot
+                    tft_drawPixel((short)(8 + jj*8), (short)(16 + ii*8), tileColor);
+            }
+            else { //print whatever character is stored in the array
+                    sprintf(tft_str_buffer,"%c",tiles[ii][jj]); //print sth that takes up an 8x8 tile
+                    tft_printLine(ii, jj, tft_str_buffer, tileColor, ILI9340_BLACK,1);
+            }
+        } // end jj for loop, columns
+    }//end ii for loop, rows
     //map and ghosts have already been reset, need to plot over the RHS of the screen 
     //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
     
