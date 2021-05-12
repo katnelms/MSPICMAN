@@ -125,7 +125,6 @@ int ghostColors[4]={ILI9340_RED,ILI9340_PINK,ILI9340_CYAN,ILI9340_ORANGE};
 int ghostColorsInit[4]={ILI9340_RED,ILI9340_PINK,ILI9340_CYAN,ILI9340_ORANGE};
 
 //lost life, game over, new level etc
-int i; int ii; int jj; //because for loops r everywhere
 int score;
 int lives = 3;
 int flashFlag = 0; // if collision: if high, plot picman, if low, plot background color
@@ -135,7 +134,7 @@ int collisionFlag = 0; //set to high when a collision happens to pause character
 int gameOverFlag = 0; //seems redundant bc we already have isStart but useful for plotting end of game, new game stuff
 int numLevels, bug256flag; //how many levels have been cleared so far. Max? like 3 maybe? 
 int darkSide[5];
-int dotsMunched = 220; // maze is 244 dots, used when level is complete
+int dotsMunched = 243; // maze is 244 dots, used when level is complete
 static int fruitxtile  = (120-8)/8; //tile that the fruit is fixed, used to update dots array
 static int fruitytile = (179 - 16)/8;  
 int fruitflag, fruitCounter, numFruit;
@@ -472,6 +471,157 @@ static PT_THREAD (protothread_timer(struct pt *pt))
     PT_END(pt);
 } // timer thread
 
+// === LEVEL 256 BUG FUNCTION ======================================================
+/* in og game, screen is split due to an overflow error. The Hidden half of the map has totally different walls, tunnels, and only 9 dots, all of which are invisible to the player. No final victory because dots counter never reaches 244. 
+ * our modifications: 
+ * just clear the dots on the RHS
+ * dont bother trying to figure out which of the 9 tiles in the OG still have dots
+ * keep map and ghost logic unchanged, just invisible */
+void level_256_bug(){
+    bug256flag = 1; //set to high so animation thread only plots on LHS of screen 
+    tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW);
+    direction = 5; //not WASD so picman stops moving
+    int YOFFSET = 6; //three rows down, want 16x32 grid of chars on RHS, screen is 28x36
+    int XOFFSET = 14;
+    
+    //clear dots on the rhs of screen 
+    int ii; int jj;
+    for(ii =0; ii < 36; ii++){ //28x36 tile grid, all rows
+        for(jj = 14; jj < 28; jj++) //only columns on rhs
+            dots[ii][jj] = 0;  //clear dots 
+    }
+    
+    char tiles [2][2] = {{'P','N'},{'D','M'}};
+    char colors [2][2] = {{'O','P'},{'B','W'}};
+    /*
+     char tiles[32][16] = { //hard code char data to be printed for 256 bug 
+        {'P','N','X','G','X','X','I','M','X','0','X','X','X','0','X','X'}, 
+        {'Q','O','X','H','X','X','J','N','X','1','X','X','X','1','X','X'}, 
+        {'X','X','X','X','G','X','F','L','D','P','X','X','F','X','X','X'}, 
+        {'X','X','X','X','H','X','G','M','D','Q','X','X','D','X','X','X'}, 
+        {'X','X','X','X','X','F','N','J','D','G','X','X','X','X','X','X'}, 
+        {'X','X','X','X','X','G','O','K','D','H','X','X','X','X','X','X'},
+        {'X','X','X','X','X','P','X','G','P','K','X','X','X','X','X','X'},
+        {'X','X','X','X','X','Q','X','H','Q','L','X','X','X','X','X','X'},
+        {'X','X','X','X','\"','H','X','F','G','L','X','X','0','0','X','X'}, 
+        {'X','X','X','X','\"','I','X','G','H','M','X','X','1','1','X','X'}, 
+        {'X','X','X','X','\"','P','P','X','X','M','X','X','X','X','X','X'},
+        {'X','X','X','X','\"','Q','Q','X','X','N','X','X','X','X','X','X'},
+        {'V','V','V','V','\"','X','X','X','O','N','X','X','X','X','X','6'},
+        {'V','V','V','X','\"','X','X','X','1','O','X','X','X','X','A','7'},
+        {'V','V','V','V','V','P','P','X','O','X','X','X','X','X','X','X'},
+        {'V','V','V','V','V','Q','Q','X','1','X','0','X','X','X','X','X'},
+        {'V','V','V','X','B','X','P','X','P','0','2','X','X','X','X','X'},
+        {'V','V','V','X','C','O','Q','X','Q','1','3','X','X','X','X','X'},
+        {'V','V','V','V','X','1','J','X','G','0','X','X','X','X','X','X'},
+        {'V','V','V','V','1','2','K','X','H','1','X','X','X','X','X','X'},
+        {'V','V','V','\"','X','X','X','X','K','P','F','X','0','X','X','X'},
+        {'V','V','V','\"','X','X','X','X','L','Q','0','X','1','X','X','X'},
+        {'V','V','V','X','X','F','B','X','L','G','1','X','C','X','X','7'},
+        {'V','V','V','X','X','D','C','X','M','H','2','X','P','X','X','8'},
+        {'V','V','V','X','X','X','N','X','M','X','P','X','X','0','X','X'},
+        {'V','V','V','X','X','X','O','X','N','X','Q','X','X','1','X','X'},
+        {'V','V','V','X','X','X','I','X','N','0','G','X','X','X','X','X'},
+        {'V','V','V','X','X','X','J','B','O','1','H','X','X','X','X','X'},
+        {'V','X','X','X','X','X','F','C','X','X','X','X','X','X','B','X'},
+        {'V','X','X','X','X','X','G','N','X','X','X','X','X','X','C','X'},
+        {'V','D','B','X','X','X','N','O','N','N','X','0','X','X','X','X'},
+        {'V','E','C','X','X','X','O','X','O','O','X','1','X','X','X','X'}};
+     
+     char colors[32][16] = { //hard code char data to be printed for 256 bug 
+        {'O','O','B','L','B','B','L','L','B','O','P','B','B','R','B','B'}, 
+        {'O','O','B','L','B','B','L','L','B','O','P','B','B','R','B','B'}, 
+        {'B','B','B','Y','L','B','L','L','B','B','B','B','B','B','B','B'}, 
+        {'B','B','B','Y','L','B','L','L','B','B','B','B','P','B','B','B'}, 
+        {'B','B','B','B','B','O','Y','L','B','B','L','L','B','B','B','B'}, 
+        {'B','B','B','B','B','O','Y','L','L','B','L','L','B','B','B','B'},
+        {'B','B','B','B','B','O','Y','L','B','L','L','L','B','B','B','B'},
+        {'B','B','B','B','B','L','O','L','B','L','L','L','B','B','B','B'},
+        {'B','B','B','B','O','Y','B','L','B','L','L','L','R','R','B','B'}, 
+        {'B','B','B','B','O','Y','B','L','B','L','L','L','R','R','B','B'}, 
+        {'B','B','B','B','O','Y','B','L','B','L','L','L','B','B','B','B'},
+        {'B','B','B','B','O','Y','B','L','B','L','L','L','B','B','B','B'},
+        {'B','B','B','B','O','B','B','L','O','L','O','L','B','B','B','L'},
+        {'B','B','B','Y','O','B','B','L','O','L','O','L','B','B','L','L'},
+        {'P','P','P','P','P','P','O','B','O','B','B','B','B','B','L','B'},
+        {'P','P','P','P','P','P','O','B','O','B','O','B','B','B','L','B'},
+        {'P','P','P','Y','O','B','B','B','L','O','R','B','B','B','B','B'},
+        {'P','P','P','Y','O','P','B','B','L','O','R','B','B','B','B','B'},
+        {'P','P','P','P','Y','R','L','L','L','O','B','L','B','B','B','B'},
+        {'P','P','P','P','O','R','L','B','L','O','B','L','B','B','B','B'},
+        {'P','P','P','P','O','R','L','B','L','O','B','L','B','B','B','B'},
+        {'P','P','P','O','B','B','B','B','B','B','G','L','B','B','B','B'},
+        {'P','P','P','O','B','B','B','B','B','R','G','L','B','B','B','B'},
+        {'P','P','P','B','B','B','B','L','L','O','L','R','B','B','B','Y'},
+        {'P','P','P','B','R','B','G','L','L','O','L','R','B','B','B','Y'},
+        {'P','P','P','B','B','B','G','L','L','B','L','L','B','R','B','B'},
+        {'P','P','P','B','B','B','B','L','L','B','L','L','B','R','B','B'},
+        {'P','P','P','B','B','B','B','L','L','O','L','L','B','B','B','B'},
+        {'W','W','B','P','P','Y','L','L','L','B','O','L','P','B','Y','B'},
+        {'W','W','B','P','P','Y','L','L','L','B','O','L','P','B','Y','B'},
+        {'B','B','B','B','P','Y','L','L','L','B','O','L','P','B','B','B'},
+        {'B','B','B','B','P','Y','L','L','L','B','O','L','P','B','B','B'}};
+     */
+    int tileColor;
+
+    //map and ghosts have already been reset, need to plot over the RHS of the screen 
+    //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
+    // first line 
+    
+    for(ii =0; ii < 2; ii++){ //28x36 tile grid, all rows
+        for(jj = 0; jj < 2; jj++){ //only columns on rhs, go from 14 to 28
+             
+            //sort through colors array to get color of the tile to be plotted
+            int tempcolor = colors[ii][jj];
+            if (tempcolor == 'O'){ 
+                tileColor = ILI9340_ORANGE;
+            }
+            else if (tempcolor == 'B'){
+                tileColor = ILI9340_BLACK;
+            }
+            else if (tempcolor == 'L'){
+                tileColor = ILI9340_BLUE;
+            }
+            else if (tempcolor == 'P'){
+                tileColor = ILI9340_PINK;
+            }
+            else if (tempcolor == 'R'){
+                tileColor = ILI9340_RED;
+            }
+            else if (tempcolor == 'Y'){
+                tileColor = ILI9340_YELLOW;
+            }
+            else if (tempcolor == 'W'){
+                tileColor = ILI9340_WHITE;
+            }
+            //else (colors[ii][jj] == 'G'){
+            else{
+                tileColor = ILI9340_GREEN;
+            }
+
+            //print 256 bug screen at the tile specified by ii,jj
+            if(tiles[ii][jj] == 'X'){ //then print a solid color box 
+                    sprintf(tft_str_buffer,"X"); //print sth that takes up an 8x8 tile
+                    tft_printLine(ii+YOFFSET, jj+XOFFSET, tft_str_buffer, tileColor, tileColor,1);
+            }
+            else if(tiles[ii][jj] == 'V'){ //VOID SPACE, dont print anything
+                    continue;
+            }
+            else if(tiles[ii][jj] == 'D'){ //print a dot
+                    //tft_drawPixel((short)(8 + jj*8), (short)(16 + ii*8), tileColor);
+                    tft_fillCircle((short)((XOFFSET + jj)*8), (short) ((YOFFSET + ii)*8),(short) 3, tileColor);
+            }
+            else { //print whatever character is stored in the array
+                    sprintf(tft_str_buffer,"%c",tiles[ii][jj]); //print sth that takes up an 8x8 tile
+                    tft_printLine(ii+YOFFSET, jj+XOFFSET, tft_str_buffer, tileColor, ILI9340_BLACK,1);
+            }
+        } // end jj for loop, columns
+    }//end ii for loop, rows
+    //map and ghosts have already been reset, need to plot over the RHS of the screen 
+    //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
+    
+}// end 256 bug function
+
 // === NEW LEVEL ===============================================================
 void newlevel() {
     
@@ -492,84 +642,11 @@ void newlevel() {
     }
 }
 
-// === LEVEL 256 BUG FUNCTION ======================================================
-/* in og game, screen is split due to an overflow error. The Hidden half of the map has totally different walls, tunnels, and only 9 dots, all of which are invisible to the player. No final victory because dots counter never reaches 244. 
- * our modifications: 
- * just clear the dots on the RHS
- * dont bother trying to figure out which of the 9 tiles in the OG still have dots
- * keep map and ghost logic unchanged, just invisible */
-void level_256_bug(){
-    bug256flag = 1; //set to high so animation thread only plots on LHS of screen 
-
-    //clear dots on the rhs of screen 
-    for(ii =0; ii < 36; ii++){ //28x36 tile grid, all rows
-        for(jj = 14; jj < 28; jj++) //only columns on rhs
-            dots[ii][jj] = 0;  //clear dots 
-    }
-    char tiles [2][2] = {{'P','N'},{'X','D'}};
-    char colors [2][2] = {{'O','P'},{'L','B'}};
-    int tileColor;
-
-    //map and ghosts have already been reset, need to plot over the RHS of the screen 
-    //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
-    // first line 
-    for(ii =0; ii < 2; ii++){ //28x36 tile grid, all rows
-        for(jj = 0; jj < 2; jj++){ //only columns on rhs, go from 14 to 28
-             sprintf(tft_str_buffer,"%c",tiles[ii][jj]); //print sth that takes up an 8x8 tile
-             tft_printLine(ii, jj, tft_str_buffer, tileColor, tileColor,5);
-            //sort through colors array to get color of the tile to be plotted
-            if (colors[ii][jj] == 'O'){ 
-                tileColor = ILI9340_ORANGE;
-            }
-            else if (colors[ii][jj] == 'B'){
-                tileColor = ILI9340_BLACK;
-            }
-            else if (colors[ii][jj] == 'L'){
-                tileColor = ILI9340_BLUE;
-            }
-            else if (colors[ii][jj] == 'P'){
-                tileColor = ILI9340_PINK;
-            }
-            else if (colors[ii][jj] == 'R'){
-                tileColor = ILI9340_RED;
-            }
-            else if (colors[ii][jj] == 'Y'){
-                tileColor = ILI9340_YELLOW;
-            }
-            else if (colors[ii][jj] == 'W'){
-                tileColor = ILI9340_WHITE;
-            }
-            //else (colors[ii][jj] == 'G'){
-            else{
-                tileColor = ILI9340_GREEN;
-            }
-
-
-            //print 256 bug screen at the tile specified by ii,jj
-            if(tiles[ii][jj] == 'X'){ //then print a solid color box 
-                    sprintf(tft_str_buffer,"X"); //print sth that takes up an 8x8 tile
-                    tft_printLine(ii, jj, tft_str_buffer, tileColor, tileColor,1);
-            }
-            else if(tiles[ii][jj] == 'V'){ //VOID SPACE, dont print anything
-                    continue;
-            }
-            else if(tiles[ii][jj] == 'D'){ //print a dot
-                    tft_drawPixel((short)(8 + jj*8), (short)(16 + ii*8), tileColor);
-            }
-            else { //print whatever character is stored in the array
-                    sprintf(tft_str_buffer,"%c",tiles[ii][jj]); //print sth that takes up an 8x8 tile
-                    tft_printLine(ii, jj, tft_str_buffer, tileColor, ILI9340_BLACK,1);
-            }
-        } // end jj for loop, columns
-    }//end ii for loop, rows
-    //map and ghosts have already been reset, need to plot over the RHS of the screen 
-    //rectangles offset by 8x, 16y for plotting already. Fill rectangles and characters of color to match OG 
-    
-}// end 256 bug function
-
 // === RESET MAP FUNCTION ======================================================
 void resetMap() {
     //SIGH reset dots array
+    int ii; 
+    int jj;
     for(ii =0; ii < 36; ii++){ //28x36 tile grid
         for(jj = 0; jj < 28; jj++)
             dots[ii][jj] = ogdots[ii][jj]; 
@@ -682,6 +759,7 @@ void checkDots() {
     
     if (dotsMunched == 244){ //check if maze was cleared
         //characters pause and picman flashes
+        int ii;
         ii = 0; //slow down flashing
         while (flashNum < 6) { //flashNum initialized to zero
             if(flashFlag == 0 && ii == 1000000){ // plot over picman to flash   
@@ -691,7 +769,7 @@ void checkDots() {
                 ii = 0;
             }
             else if(flashFlag == 1 && ii == 1000000){ // replot picman to flash
-                tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //erase pic-man
+                tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //replot pic-man
                 flashFlag = 0; //set flag to 0 for next time through the loop
                 flashNum +=1;
                 ii = 0;

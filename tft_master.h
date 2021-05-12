@@ -111,16 +111,15 @@
 
 // Color definitions
 #define	ILI9340_BLACK   0x0000
-#define	ILI9340_BLUE    0x001F
+#define ILI9340_WHITE   0xFFFF
+#define ILI9340_PINK    0xF81F
 #define	ILI9340_RED     0xF800
+#define ILI9340_ORANGE  0xFBE0
+#define ILI9340_YELLOW  0xFFE0
 #define	ILI9340_GREEN   0x07E0
 #define ILI9340_CYAN    0x07FF
+#define	ILI9340_BLUE    0x001F
 #define ILI9340_MAGENTA 0xF81F
-#define ILI9340_YELLOW  0xFFE0
-#define ILI9340_WHITE   0xFFFF
-#define ILI9340_ORANGE  0xFBE0
-#define ILI9340_PINK    0xF81F
-
 
 #define PBCLK 40000000 // peripheral bus clock
 #define SPI_freq    20000000
