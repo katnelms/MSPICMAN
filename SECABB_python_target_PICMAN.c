@@ -899,7 +899,6 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
         int dirCounter;
         int validDirs[4]={0,0,0,0};
         int sumDirs=0;
-        printf("sumDirs %d\n",sumDirs);
         //loop through all directions
         for (dirCounter=1;dirCounter<=4;dirCounter++){
             nextXPos=ghostX;
@@ -927,9 +926,7 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
                 } //end if tile is legal
             } //end if not the opposite direction
         } //end for all directions loop
-        printf("sumDirs %d\n",sumDirs);
         int rand_numb = (rand() % sumDirs)+1; //generate rand numb [1,total number of valid directions]
-        printf("rand numb %d\n",rand_numb);
         int rr;
         int countValid=0;
         for (rr=0;rr<4;rr++){ //go through all directions
@@ -941,7 +938,6 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
                 }
             }
         }
-        printf("nextDir %d\n",nextDir);
         frightStart[ghost]=0;
     } //end if frightStart==1
     //check which direction we are moving and move 1 pixel in that direction
@@ -1038,13 +1034,10 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
                 if (map[nextNextYTile][nextNextXTile]==1){ //if the next tile is legal
                     validDirs[dirCounter-1]=1;
                     sumDirs++;
-                    //printf("sumDirs %d\n",sumDirs);
                 } //end if tile is legal
             } //end if not the opposite direction
         } //end for all directions loop
-        //printf("sumDirs %d\n",sumDirs);
         int rand_numb = (rand() % sumDirs)+1; //generate rand numb [1,total number of valid directions]
-        //printf("rand numb %d\n",rand_numb);
         int rr;
         int countValid=0;
         for (rr=0;rr<4;rr++){ //go through all directions
@@ -1055,173 +1048,7 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
                 }
             }
         }
-        //printf("nextDir %d\n",nextGhostDir[ghost]);
     } //end if we are in new tile
-    
-    /*CONCEPT: - ONLY ON FIRST RUN
-     1. find prev dir, based upon reversing
-     2. determine the last tile u were in based upon ur prev direction
-     3. calculate ur next next tile based upon the previous tile you were in
-     4. find the allowable directions on your next next tile
-     5. pick a random number and go in that direction
-     
-    
-    //step 1: reverse direction when we enter frighten mode, set prevDir
-    if(frightStart[ghost] == 1){
-        if(currGhostDir[ghost] == 1){
-            currGhostDir[ghost] = 3;
-            //nextGhostDir[ghost] = 3;
-        }
-        else if(currGhostDir[ghost] == 2){
-            currGhostDir[ghost] = 4;
-            //nextGhostDir[ghost] = 4;
-        }
-        else if(currGhostDir[ghost] == 3){
-            currGhostDir[ghost] = 1;
-            //nextGhostDir[ghost] = 1;
-        }
-        else{
-            currGhostDir[ghost] = 2;
-            //nextGhostDir[ghost] = 2;
-        }
-    }  
-    
-    int prevDir=prevGhostDir[ghost];
-    int currDir=currGhostDir[ghost];
-   
-    //check which direction we are moving and move 1 pixel in that direction
-    if (currDir==1) { //up
-        yGhostPos[ghost]-=1;
-    }
-    else if (currDir==2) { //left
-        xGhostPos[ghost]-=1;
-        if (xGhostPos[ghost]<12){ //wrap, this only happens at the "hallway"
-            xGhostPos[ghost]=228;
-        }
-    }
-    else if (currDir==3) { //down
-        yGhostPos[ghost]+=1;
-    }
-    else if (currDir==4) { //right
-        xGhostPos[ghost]+=1;
-        if (xGhostPos[ghost]>228){ //wrap, this only happens at the "hallway"
-            xGhostPos[ghost]=12;
-        }
-    }
-   
-    nextXTile=(xGhostPos[ghost]-8)/8;
-    nextYTile=(yGhostPos[ghost]-16)/8;
-    
-    
-    //calculate the tile we are in after moving 1 pixel
-    //nextXTile=(xGhostPos[ghost]-8)/8;
-    //nextYTile=(yGhostPos[ghost]-16)/8;
-    //only calculate for the next next tile if we have entered a new tile
-    if (nextXTile!=currXTile || nextYTile!=currYTile || frightStart[ghost] == 1) {
-        //calculate the next tile based off the direction we are about to move in
-        nextXPos=xGhostPos[ghost];
-        nextYPos=yGhostPos[ghost];
-        
-        if(frightStart[ghost] ==1){
-            nextXPos=ghostX;
-            nextYPos=ghostY;
-        
-            nextDir = currDir;
-        }
-        
-        
-       
-        if (nextDir==1) { //up
-            nextYPos-=8; 
-            oppDir=3;
-        }
-        else if (nextDir==2) { //left
-            nextXPos-=8;
-            if (nextXPos<8){
-                nextXPos=231;
-            }
-            oppDir=4;
-        }
-        else if (nextDir==3) { //down
-            nextYPos+=8;
-            oppDir=1;
-        }
-        else if (nextDir==4) { //right
-            nextXPos+=8;
-            if (nextXPos>230){
-                nextXPos=9;
-            }
-            oppDir=2;
-        }
-        
-        prevGhostDir[ghost]=currDir; //save current direction as previous direction
-        currGhostDir[ghost]=nextDir; //change current direction to predetermined next direction
-        
-        //Assess intended tile, check if tiles in the three potentially allowed directions are legal
-        // only three potentially legal tiles bc we cannot reverse directions 
-        int dirCounter =1;
-        int index = 0;
-        int validDirs[4] = {0,0,0,0}; 
-        //loop through all directions
-        for (dirCounter=1;dirCounter<=4;dirCounter++){
-            short nextNextXPos=nextXPos;
-            short nextNextYPos=nextYPos;
-            //if this isn't the opposite direction, calculate next next x,y positions
-            if (dirCounter!=oppDir){ 
-                if (dirCounter==1){ //up
-                    nextNextYPos-=8;
-                }
-                else if (dirCounter==2){ //left
-                    nextNextXPos-=8;
-                }
-                else if (dirCounter==3){ //down
-                    nextNextYPos+=8;
-                }
-                else if (dirCounter==4){ //right
-                    nextNextXPos+=8;
-                }
-                nextNextXTile=(nextNextXPos-8)/8; //convert to tile
-                nextNextYTile=(nextNextYPos-16)/8;
-                if (map[nextNextYTile][nextNextXTile]==1){ //if the next tile is legal 
-                    validDirs[index] = 1;
-                }//if legal tile
-                index++;
-            }//end if not opp dir
-        }//end for loop   
-        
-        //printf("valid dirs[1] %d\n", validDirs[0]);
-        //printf("valid dirs[2] %d\n", validDirs[1]);
-        //printf("valid dirs[3] %d\n", validDirs[2]);
-        //printf("valid dirs[4] %d\n", validDirs[3]);
-        
-        int rand_numb = (rand() % 2) + 1;
-        //printf("rand numb  = %d\n", rand_numb);
-        int map_counter = 0;
-        int rr =0;;
-        nextDir = 0;
-        while(nextDir==0){
-            //printf("in while");
-            if (validDirs[rr] != 0){
-                map_counter++;
-                if (map_counter == rand_numb) {
-                    //prevGhostDir[ghost]=currDir; //save current direction as previous direction
-                    //currGhostDir[ghost]=nextDir; //change current direction to predetermined next direction
-                    nextDir = rr + 1;
-                }//end if map counter
-            }//end if valid dir
-            rr++;
-            if(rr == 3){
-                rr =0;
-            }
-        } //end while loop
-        nextGhostDir[ghost] = nextDir;
-   }//end if not current tile
-   if(frightStart[ghost] ==1){
-       frightStart[ghost] =0;
-   }
- //}//end if first time
-    */
-  
 }//end function
 
 
@@ -1295,8 +1122,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     }
                     ghostColors[i]=ILI9340_BLUE;
                 }
-                //printf("isFrightened value  = %d \n", isFrightened);
-                //tft_fillCircle((short)(12 + check_tile*8), (short) (20 + draw_row*8),(short) 4, ILI9340_WHITE);
                 tft_fillCircle((short)(12+current_xtile*8),(short)(20+current_ytile*8),3,ILI9340_BLACK);  //erase Big Dot
                 sprintf(tft_str_buffer,"%d", score); //print new score
                 tft_printLine(2, 6, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,2); 
@@ -1439,8 +1264,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             
             //ghost modes
             if (isChase==1){ //if in chase mode 
-                //blinky target tile
-                //printf("in chase");
                 xTarget[0]=currentxPacman;
                 yTarget[0]=currentyPacman;
                 if (direction==1 && collisionFlag!=1){ //up
@@ -1535,7 +1358,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 int ii;
                 for(ii=0;ii<4;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
                     if (ghostArray[ii]==3 && ghostArray[ii]!=0){
-                        //printf("in fright if\n");
                         moveGhostsFrightenMode(ii, xGhostPos[ii], yGhostPos[ii]);
                     }
                 }
