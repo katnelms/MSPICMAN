@@ -77,6 +77,8 @@ int ghost_dot_counter;
 int direction;      //takes in WASD or arrow key input to change PICMAN motion
 short xPacman =120; //initial pacman position stored as x,y pixel coords on tft
 short yPacman =228;
+int moveBy=1;
+int everyOther=0;
 short xBlinky = 120; //blinky starts just above pen, in scatter mode
 short yBlinky = 132;
 short xPinky = 120;
@@ -88,7 +90,7 @@ short yClyde = 156;
 char ghostArray[4]={2,0,0,0};//blinky,pinky,inky,clyde
                              //0->in pen, 1->chase, 2->scatter, 3->frightened
 int ghostCounters[3];//pinky,inky,clyde
-char prevState[4]; //store ghost state so that when they come out of frighten mode, they return to chase or scatter 
+char prevState[4]={2,0,0,0}; //store ghost state so that when they come out of frighten mode, they return to chase or scatter 
 int prevDirection;  //stores pacmans previous direction in the event user tries to change direction into dead space
 short xTarget[4];
 short yTarget[4];
@@ -380,19 +382,21 @@ static PT_THREAD (protothread_timer(struct pt *pt))
                 isScatter=0;
                 isChase=1;
             }
+            //printf("GHOSTARRAY AT TIME %d: ghostArray[]={%d,%d,%d,%d}\n",chaseTimer,ghostArray[0],ghostArray[1],ghostArray[2],ghostArray[3]);
         }
         else if (isStart==1 && isFrightened == 1){ // if game is started and blinky is in frightened
             frightTimer++; //increment timer that keeps track of how long we've been in frighten mode
             int i; 
-            if (frightTimer>6) { //frighten mode lasts 6s
+            if (frightTimer>5) { //frighten mode lasts 6s
                 for (i=0;i<4;i++){
+                    //printf("END FRIGHTEN MODE PREVSTATE: prevState[]={%d,%d,%d,%d}\n",prevState[0],prevState[1],prevState[2],prevState[3]);
                     //if (ghostArray[i]!=0){ //if ghosts not in pen, return them to previouse state
                         //DEAL WITH THIS LATER
-                    ghostArray[i]=prevState[i];//remember to save prev state and change here, ie return to scatter or chase from frighten
+                        ghostArray[i]=prevState[i];//remember to save prev state and change here, ie return to scatter or chase from frighten
                     //}
                     ghostColors[i]=ghostColorsInit[i];
                 }
-                
+                //printf("END FRIGHTEN MODE: ghostArray[]={%d,%d,%d,%d}\n",ghostArray[0],ghostArray[1],ghostArray[2],ghostArray[3]);
                 isFrightened =0;
                 frightTimer=0; //reset frighten timer 
             }
@@ -404,7 +408,7 @@ static PT_THREAD (protothread_timer(struct pt *pt))
             if (fruitCounter == 10){ //players have 10s to eat the fruit
                 fruitflag = 0; //fruit has been Munched
                 tft_fillCircle(120, 179, 3, ILI9340_BLACK); //remove the fruit
-                dots[fruitxtile][fruitytile] = 0;
+                dots[fruitytile][fruitxtile] = 0;
                 fruitCounter = 0; //reset
             }
         }
@@ -651,6 +655,7 @@ void resetGhosts() {
     for (ii=1;ii<4;ii++){ //set other ghost states to "in pen"
         ghostArray[ii]=0;
     }
+    //printf("RESET GHOSTS: ghostArray[]={%d,%d,%d,%d}\n",ghostArray[0],ghostArray[1],ghostArray[2],ghostArray[3]);
     direction = 0; //not WASD so picman stops moving
     xPacman =120; 
     yPacman =228;
@@ -677,6 +682,7 @@ void resetGhosts() {
         Clyde_Color = ILI9340_ORANGE;*/ //c l y d e <333
     }
     isFrightened  = 0;
+    frightTimer=0;
     isScatter=1;
     isChase=0;
     chaseTimer = 0; //reset timer for ghost behavior (scatter/chase timer)
@@ -693,7 +699,7 @@ void checkDots() {
         fruitflag = 1; //set to high until Fruit Munched (tm)
         numFruit = 1; //
         tft_fillCircle(120, 179, 3, ILI9340_RED); //cherries? lol
-        dots[fruitxtile][fruitytile] = 3; //set the dots array to a value thats not = small or big dot to keep track of when fruit is eaten
+        dots[fruitytile][fruitxtile] = 3; //set the dots array to a value thats not = small or big dot to keep track of when fruit is eaten
     }//end if dotsMunched >= 70
     
     else if(dotsMunched >= 170 && numFruit == 1){ //check that 170 dots have been eaten and second fruit hasnt been printed yet
@@ -701,7 +707,7 @@ void checkDots() {
         fruitflag = 1; //set to high until Fruit Munched (tm)
         numFruit = 2; //
         tft_fillCircle(120, 179, 3, ILI9340_RED); 
-        dots[fruitxtile][fruitytile] = 3; //set the dots array to a value thats not = small or big dot to keep track of when fruit is eaten
+        dots[fruitytile][fruitxtile] = 3; //set the dots array to a value thats not = small or big dot to keep track of when fruit is eaten
     }//end if dotsMunched >= 170
     
     if (dotsMunched == 244){ //check if maze was cleared
@@ -1096,6 +1102,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             else if (dots[current_ytile][current_xtile]==2){ //if current tile contains a big dot
                 score+=50; // increase points 
                 dotsMunched++; //increase dots counter. max 244
+                if (isFrightened==1){ //ate second dot while already in frighten
+                    frightTimer=0;
+                }
                 isFrightened = 1;
                 
                 //isScatter = 0;
@@ -1104,11 +1113,15 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 
                 dots[current_ytile][current_xtile]=0; //store new dot value
                 int i;
+                //printf("PREVSTATE BEFORE DOIN ME A FRIGHTEN: prevState[]={%d,%d,%d,%d}\n",prevState[0],prevState[1],prevState[2],prevState[3]);
                 for (i=0;i<4;i++){ //trigger frighten mode
-                    if(ghostArray[i] != 0){
-                        prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
-                        ghostArray[i]=3; //doin me a frighten
-                        frightStart[i] = 1;
+                    if(ghostArray[i] != 0 && ghostArray[i]!=3){
+                        //if (ghostArray[i]!=3){
+                            prevState[i]=ghostArray[i]; //store previous mode for when frightened is over
+                            ghostArray[i]=3; //doin me a frighten
+                            frightStart[i] = 1;
+                            //printf("DOIN ME A FRIGHTEN i=%d: ghostArray[]={%d,%d,%d,%d}\n",i,ghostArray[0],ghostArray[1],ghostArray[2],ghostArray[3]);
+                        //}
                     }
                     ghostColors[i]=ILI9340_BLUE;
                 }
@@ -1120,8 +1133,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             else if (dots[current_ytile][current_xtile]==3){ //if current tile contains a fruit
                 score+=100; // cherries for level1 worth 100pts 
                 fruitflag = 0; //fruit has been Munched
+                //printf("fruit munched\n");
                 tft_fillCircle(120, 179, 3, ILI9340_BLACK); //remove the fruit
-                dots[fruitxtile][fruitytile] = 0;
+                dots[fruitytile][fruitxtile] = 0;
             }
 
             // ------ PLOT MsPICMAN ------------------------------------------
@@ -1129,15 +1143,23 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // we have the current tile, we increment pixel position, then calculate "new_tile"
             // if new tile is dead, then decrement the pixel position and this process repeats (picman stops moving @walls)
             //if legal tile, proceed w plotting 
+            if (isFrightened==1 && everyOther==0){
+                moveBy=2;
+                everyOther=1;
+            }
+            else{
+                moveBy=1;
+                everyOther=0;
+            }
             int new_xtile; 
             int new_ytile;
             /*move in direction*/
             if ((direction==1) && (collisionFlag != 1)) { //up, don't update position if in lost life sequence
-                yPacman-=1; //positive y is defined down for tft 
+                yPacman-=moveBy; //positive y is defined down for tft 
                 new_xtile = (xPacman-8)/8; //this is the tile she wants to move to but we need to check if its legal first
                 new_ytile = ((yPacman-4) - 16)/8;
                 if (map[new_ytile][new_xtile]==0){ //if new tile is dead space
-                    yPacman+=1; //then decrement position back
+                    yPacman+=moveBy; //then decrement position back
                     if (prevDirection!=0) //if the user tried to move up but it turned out to be illegal
                         direction=prevDirection; //reset the previous direction
                 }
@@ -1149,7 +1171,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 }
             }    
             else if ((direction==2) && (collisionFlag != 1)) { //left
-                xPacman-=1;
+                xPacman-=moveBy;
                 if (xPacman<10) //wrap, this only happens at the "hallway"
                     xPacman=228;
                 new_xtile = ((xPacman-4)-8)/8;
@@ -1158,7 +1180,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     if(xPacman==228) 
                         xPacman=10;
                     else
-                        xPacman+=1;
+                        xPacman+=moveBy;
                     if (prevDirection!=0)
                         direction=prevDirection;
                 }
@@ -1170,11 +1192,11 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 }
             }
             else if ((direction==3)&&(collisionFlag != 1)) { //down
-                yPacman+=1;
+                yPacman+=moveBy;
                 new_xtile = (xPacman-8)/8;
                 new_ytile = ((yPacman+4) - 16)/8;
                 if (map[new_ytile][new_xtile]==0) {
-                    yPacman-=1;
+                    yPacman-=moveBy;
                     if (prevDirection!=0)
                         direction=prevDirection;
                 }
@@ -1186,7 +1208,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 }
             }
             else if ((direction==4) && (collisionFlag != 1)) { //right
-                xPacman+=1;
+                xPacman+=moveBy;
                 if (xPacman>227) //wrap
                     xPacman=10; 
                 new_xtile = ((xPacman+4)-8)/8;
@@ -1195,7 +1217,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     if(xPacman==10)
                         xPacman=227;
                     else
-                        xPacman-=1;
+                        xPacman-=moveBy;
                     if (prevDirection!=0)
                         direction=prevDirection;
                 }
@@ -1219,7 +1241,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             ///////PINY///////
             if((PdotCounter == 1 || (lives < 3 && global_dotCounter == 7) 
                     || (global_ghost_timer >= 4)) && ghostArray[1] == 0){
-
+                ghostArray[1] = ghostArray[0];
                 if(isFrightened ==1){
                      ghostArray[1] = 3; 
                      prevState[1] = prevState[0];
@@ -1231,12 +1253,12 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
 
                 PdotCounter = 2;
                 global_ghost_timer = 0;
-                ghostArray[1] = ghostArray[0];
+                
             }
             ///////INKY///////
             if((IdotCounter == 31 || (lives < 3 && global_dotCounter == 17)
                     || (global_ghost_timer >= 4)) && ghostArray[2] == 0){
-                
+                ghostArray[2] = ghostArray[0];
                 if(isFrightened ==1){
                      ghostArray[2] = 3; 
                      prevState[2] =prevState[0];
@@ -1250,20 +1272,18 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 //current_yItile = (yPinky - 16)/8;
                 IdotCounter = 32;
                 global_ghost_timer = 0;
-                ghostArray[2] = ghostArray[0];
+                
             }
             ////////CLYDE/////// <3 
             if((CdotCounter == 61 || (lives < 3 && global_dotCounter == 32)
                     || (global_ghost_timer >= 4)) && ghostArray[3] == 0){
-                
-                if(isFrightened ==1){
+                    //printf("RELEASED: CdotCounter=%d, lives=%d, global_dotCounter=%d, global_ghost_timer=%d, ghostArray[3]=%d\n", CdotCounter,lives,global_dotCounter,global_ghost_timer,ghostArray[3]);
+                ghostArray[3] = ghostArray[0];
+                    if(isFrightened ==1){
                      ghostArray[3] = 3; 
                      prevState[3] = prevState[0];
-                     frightStart[3] =1;
+                     frightStart[3] =1;          
                 }
-                
-                
-                
                 xGhostPos[3] = 120; //move pinky above pen when counter limit is reached
                 yGhostPos[3] = 132; 
 
@@ -1271,7 +1291,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 //current_yCtile = (yPinky - 16)/8;
                 CdotCounter = 62;
                 global_ghost_timer = 0;
-                ghostArray[3] = ghostArray[0];
+                
             } 
             
             //ghost modes
@@ -1342,6 +1362,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 int ii;
                 for(ii=0;ii<4;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
                     if (ghostArray[ii]!=3 && ghostArray[ii]!=0){
+                        ///if (ii==3)
+                            //printf("CHASE: CdotCounter=%d, lives=%d, global_dotCounter=%d, global_ghost_timer=%d, ghostArray[3]=%d\n", CdotCounter,lives,global_dotCounter,global_ghost_timer,ghostArray[3]);
                         moveGhosts(ii, xGhostPos[ii], yGhostPos[ii], xTarget[ii], yTarget[ii]);
                     }
                 } 
@@ -1359,6 +1381,8 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 for(ii=0;ii<4;ii++) {
                     //loop through ghosts //CHANGE FROM 2 - 1 for testing
                     if (ghostArray[ii]!=3 && ghostArray[ii]!=0){
+                        //if(ii==3)
+                            //printf("SCATTER: CdotCounter=%d, lives=%d, global_dotCounter=%d, global_ghost_timer=%d, ghostArray[3]=%d\n", CdotCounter,lives,global_dotCounter,global_ghost_timer,ghostArray[3]);
                         moveGhosts(ii, xGhostPos[ii], yGhostPos[ii], xTarget[ii], yTarget[ii]);
                     }
                 }
@@ -1367,7 +1391,9 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             if(isFrightened == 1){
                 int ii;
                 for(ii=0;ii<4;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
-                    if (ghostArray[ii]==3 && ghostArray[ii]!=0){
+                    if (ghostArray[ii]==3 /*&& ghostArray[ii]!=0*/){
+                        //if(ii==3)
+                            //printf("FRIGHTENED: CdotCounter=%d, lives=%d, global_dotCounter=%d, global_ghost_timer=%d, ghostArray[3]=%d\n", CdotCounter,lives,global_dotCounter,global_ghost_timer,ghostArray[3]);
                         moveGhostsFrightenMode(ii, xGhostPos[ii], yGhostPos[ii]);
                     }
                 }
@@ -1393,10 +1419,12 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                         nextGhostDir[bb]=2;
                         ghostsEaten++;
                         score += 200 * ghostsEaten;
-                        ghostArray[bb] = prevState[bb]; // put him back in whatever mode he was in before being Frightened 
+                        ghostArray[bb] = prevState[bb]; // put him back in whatever mode he was in before being Frightened
+                        //printf("COLLISION bb=%d: ghostArray[]={%d,%d,%d,%d}\n",bb,ghostArray[0],ghostArray[1],ghostArray[2],ghostArray[3]);
                     }
                 }
             }
+            
             
             // IF collision AND not in frighten mode
             // all characters pause, picman dies (flashing)
@@ -1512,28 +1540,13 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                     else if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==2){
                         tft_fillCircle((short)(12 + currXGhostTile[cc]*8), (short) (20 + currYGhostTile[cc]*8),(short) 3, ILI9340_WHITE);
                     }
+                    else if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==3){
+                        tft_fillCircle(120, 179, 3, ILI9340_RED);
+                    }
                     tft_fillCircle(xGhostPos[cc],yGhostPos[cc],2,ghostColors[cc]); //plot new ghost
                 }
             }
             // END COPY N PASTE HERE
-           
-            
-            /* GRACES ANIMATION CODE
-            tft_fillCircle(currentxPacman,currentyPacman,3,ILI9340_BLACK); //erase pic-man
-            tft_fillCircle(xPacman,yPacman,3,ILI9340_YELLOW); //plot new picman
-            
-            int cc;
-            for(cc=0;cc<4;cc++){
-                tft_fillCircle(currXGhostPos[cc],currYGhostPos[cc],2,ILI9340_BLACK); //erase ghost
-                
-                if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==1){
-                    tft_drawPixel((short)(12 + currXGhostTile[cc]*8), (short) (20 + currYGhostTile[cc]*8), ILI9340_WHITE);
-                }
-                else if (dots[currYGhostTile[cc]][currXGhostTile[cc]]==2){
-                    tft_fillCircle((short)(12 + currXGhostTile[cc]*8), (short) (20 + currYGhostTile[cc]*8),(short) 3, ILI9340_WHITE);
-                }
-                tft_fillCircle(xGhostPos[cc],yGhostPos[cc],2,ghostColors[cc]); //plot new ghost
-            }*/
             
             //this is such a jank solution i hate it 
             if (gameOverFlag == 1){
