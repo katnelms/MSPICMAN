@@ -395,7 +395,6 @@ static PT_THREAD (protothread_timer(struct pt *pt))
                 
                 isFrightened =0;
                 frightTimer=0; //reset frighten timer 
-                printf("end fright");
             }
         }
         
@@ -871,58 +870,9 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
         else if (prevDir==4){ //right
             currGhostDir[ghost]=2;
         }
+        //currGhostDir[ghost]=prevDir;
         prevDir=currDir;
         currDir=currGhostDir[ghost];
-        int dirCounter;
-        int validDirs[4]={0,0,0,0};
-        int sumDirs=0;
-        //loop through all directions
-        for (dirCounter=1;dirCounter<=4;dirCounter++){
-            nextXPos=ghostX;
-            nextYPos=ghostY;
-            //if this isn't the direction we just flipped from, calculate next next x,y positions
-            if (dirCounter!=prevDir){ 
-                if (dirCounter==1){ //up
-                    nextYPos-=8;
-                }
-                else if (dirCounter==2){ //left
-                    nextXPos-=8;
-                     if (nextXPos<12){ //wrap, this only happens at the "hallway"
-                        nextXPos=228;
-                    }
-                }
-                else if (dirCounter==3){ //down
-                    nextYPos+=8;
-                }
-                else if (dirCounter==4){ //right
-                    nextXPos+=8;
-                    if (nextXPos>228){ //wrap, this only happens at the "hallway"
-                        nextXPos=12;
-                    }
-                }
-                nextXTile=(nextXPos-8)/8; //convert to tile
-                nextYTile=(nextYPos-16)/8;
-                if (map[nextYTile][nextXTile]==1){ //if the next tile is legal
-                    validDirs[dirCounter-1]=1;
-                    sumDirs++;
-                    printf("sumDirs %d\n",sumDirs);
-                } //end if tile is legal
-            } //end if not the opposite direction
-        } //end for all directions loop
-        int rand_numb = rand() % sumDirs + 1; //generate rand numb [1,total number of valid directions]
-        //printf("rand_numb %d\n,",rand_numb);
-        int rr;
-        int countValid=0;
-        for (rr=0;rr<4;rr++){ //go through all directions
-            if(validDirs[rr]==1){ //if its a valid direction
-                countValid++; //increase the counter
-                if (countValid==rand_numb){ //if this counter is equal to the rand numb
-                    nextGhostDir[ghost]=rr+1; //save as next direction
-                    nextDir=rr+1;
-                }
-            }
-        }
-        frightStart[ghost]=0;
     } //end if frightStart==1
     //check which direction we are moving and move 1 pixel in that direction
     if (currDir==1) { //up
@@ -958,6 +908,57 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
     //calculate the tile we are in after moving 1 pixel
     nextXTile=(xGhostPos[ghost]-8)/8;
     nextYTile=(yGhostPos[ghost]-16)/8;
+    if(frightStart[ghost]==1){
+        int dirCounter;
+        int validDirs[4]={0,0,0,0};
+        int sumDirs=0;
+        //loop through all directions
+        for (dirCounter=1;dirCounter<=4;dirCounter++){
+            nextXPos=xGhostPos[ghost];
+            nextYPos=yGhostPos[ghost];
+            //if this isn't the direction we just flipped from, calculate next next x,y positions
+            if (dirCounter!=prevDir){ 
+                if (dirCounter==1){ //up
+                    nextYPos-=8;
+                }
+                else if (dirCounter==2){ //left
+                    nextXPos-=8;
+                     if (nextXPos<12){ //wrap, this only happens at the "hallway"
+                        nextXPos=228;
+                    }
+                }
+                else if (dirCounter==3){ //down
+                    nextYPos+=8;
+                }
+                else if (dirCounter==4){ //right
+                    nextXPos+=8;
+                    if (nextXPos>228){ //wrap, this only happens at the "hallway"
+                        nextXPos=12;
+                    }
+                }
+                nextXTile=(nextXPos-8)/8; //convert to tile
+                nextYTile=(nextYPos-16)/8;
+                if (map[nextYTile][nextXTile]==1){ //if the next tile is legal
+                    validDirs[dirCounter-1]=1;
+                    sumDirs++;
+                } //end if tile is legal
+            } //end if not the opposite direction
+        } //end for all directions loop
+        int rand_numb = rand() % sumDirs + 1; //generate rand numb [1,total number of valid directions]
+        int rr;
+        int countValid=0;
+        for (rr=0;rr<4;rr++){ //go through all directions
+            if(validDirs[rr]==1){ //if its a valid direction
+                countValid++; //increase the counter
+                if (countValid==rand_numb){ //if this counter is equal to the rand numb
+                    nextGhostDir[ghost]=rr+1; //save as next direction
+                    nextDir=rr+1;
+                }
+            }
+        }
+        frightStart[ghost]=0;
+    }
+    
     //only calculate for the next next tile if we have entered a new tile
     if (nextXTile!=currXTile || nextYTile!=currYTile) {   
         //calculate the next tile based off the direction we are about to move in
@@ -991,10 +992,9 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
         
         //Assess intended tile, check if tiles in the three potentially allowed directions are legal
         // only three potentially legal tiles bc we cannot reverse directions 
-        int dirCounter;
+        int dirCounter=1;
         int validDirs[4]={0,0,0,0};
         int sumDirs=0;
-        //printf("sumDirs %d\n",sumDirs);
         //loop through all directions
         for (dirCounter=1;dirCounter<=4;dirCounter++){
             short nextNextXPos=nextXPos;
@@ -1047,7 +1047,7 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
 // if ghosts in frighten mode, choose direction at intersection randomly
 // if ghosts in scatter mode, path logic according to home tile
 // if ghosts in chase mode, path logic according to target tile = f(picman's current tile)
-                        
+
 static PT_THREAD (protothread_animation (struct pt *pt)){
     PT_BEGIN(pt);
     while(1){
@@ -1223,6 +1223,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 if(isFrightened ==1){
                      ghostArray[1] = 3; 
                      prevState[1] = prevState[0];
+                     frightStart[1] =1;
                 }
                 
                 xGhostPos[1] = 120; //move pinky above pen when counter limit is reached
@@ -1239,6 +1240,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 if(isFrightened ==1){
                      ghostArray[2] = 3; 
                      prevState[2] =prevState[0];
+                     frightStart[2] =1;
                 }
                 
                 xGhostPos[2] = 120; //move pinky above pen when counter limit is reached
@@ -1257,6 +1259,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 if(isFrightened ==1){
                      ghostArray[3] = 3; 
                      prevState[3] = prevState[0];
+                     frightStart[3] =1;
                 }
                 
                 
@@ -1344,7 +1347,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 } 
             }
             else if (isScatter==1){
-                //printf("in scatter");
                 xTarget[0]=208;//tile (25,0)
                 yTarget[0]=16;
                 xTarget[1]=24;//tile (2,0)
@@ -1363,7 +1365,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             }
             
             if(isFrightened == 1){
-                
                 int ii;
                 for(ii=0;ii<4;ii++) { //loop through ghosts //CHANGE FROM 2 - 1 for testing
                     if (ghostArray[ii]==3 && ghostArray[ii]!=0){
@@ -1403,7 +1404,6 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             // ghosts are reset, timer for ghost modes is reset 
             if (collisionFlag == 1){   //if collision occurs, animate death and replot   
             // in game, ms pacman kinda warps into nothing but we dont have that resolution so im just going to have her flash        
-                printf("in collision if /n");
                 while (flashNum < 8) { //flashNum initialized to zero
                     PT_YIELD_TIME_msec(300); //this is here to slow down the death animation
                     if(flashFlag == 0){ // plot over picman to flash
@@ -1456,6 +1456,7 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                    PdotCounter = 0;
                    IdotCounter = 0;
                    CdotCounter = 0; // maze is 244 dots
+                   dotsMunched=0;
                    resetMap();
                    
                 }//end if lives = 0
@@ -1540,12 +1541,10 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
                 tft_fillCircle(xPacman,yPacman,3,ILI9340_BLACK); //plot new picman
             }
         } //end of if isStart 
-        
         // 30 fps => frame time of 32 mSec. This blurb checks that we're meeting that goal
         check_time = PT_GET_TIME() - begin_time; //checks if more than 32 msec has passed
         if(check_time > 32){
             mPORTAClearBits(BIT_0); // turn off LED if below 30FPS
-            //printf("rip");
         }
         else{
             mPORTASetBits(BIT_0); // turn LED on IF we meet 30FPS 
@@ -1602,16 +1601,9 @@ static PT_THREAD (protothread_arrows(struct pt *pt))
         // clear flag
         new_arrow = 0;  
         if (arrow_value==1){
-            direction = arrow_id;
+            direction = arrow_id; //1 2 3 4 up down left right
             srand(seed_counter);
-            //printf("%d",direction);
-        }
-        //tft_fillCircle(280,200,5,ILI9340_MAGENTA);
-        //sprintf(tft_str_buffer,"%d", direction); 
-        //tft_printLine(4, 5, tft_str_buffer, ILI9340_MAGENTA, ILI9340_BLACK,5);
-        
-        //1,2,3,4 for up left down R
-        
+        }    
     } // END WHILE(1)   
     PT_END(pt);  
 } // arrow thread
@@ -1671,14 +1663,12 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         // There can be toggle switch, button, slider, and string events
         // Updated to add WASD and arrow key control input to change PICMAN direction 
         //1,2,3,4 for up left down R
-        //printf("%s\n",PT_term_buffer);
         if (PT_term_buffer[0]=='a'){
             // signal the button thread
             new_arrow = 1;
             // subtracting '0' converts ascii to binary for 1 character
             arrow_id = (PT_term_buffer[1] - '0')*10 + (PT_term_buffer[2] - '0');
             arrow_value=PT_term_buffer[4]-'0';
-            //printf("%s\n",PT_term_buffer);
         }
       
         // pushbutton
@@ -1688,7 +1678,6 @@ static PT_THREAD (protothread_serial(struct pt *pt))
             // subtracting '0' converts ascii to binary for 1 character
             button_id = (PT_term_buffer[1] - '0')*10 + (PT_term_buffer[2] - '0');
             button_value = PT_term_buffer[3] - '0';
-            //printf("%s\n",PT_term_buffer);
         }
         
         // string from python input line
