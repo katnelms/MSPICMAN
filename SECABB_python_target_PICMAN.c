@@ -577,6 +577,7 @@ void newlevel() {
     dotsMunched = 0;
     numFruit = 0;  
     global_dotCounter =0;
+    global_ghost_timer = 0;
     PdotCounter = 0;
     IdotCounter = 0;
     CdotCounter = 0; // maze is 244 dots
@@ -858,7 +859,18 @@ void moveGhostsFrightenMode(int ghost, int ghostX, int ghostY) {
     
     //first time where ghosts reverse direction
     if(frightStart[ghost] == 1){
-        currGhostDir[ghost]=prevDir;
+        if(prevDir==1){ //up
+            currGhostDir[ghost]=3;
+        }
+        else if (prevDir==2){ //left
+            currGhostDir[ghost]=4;
+        }
+        else if (prevDir==3){ //down
+            currGhostDir[ghost]=1;
+        }
+        else if (prevDir==4){ //right
+            currGhostDir[ghost]=2;
+        }
         prevDir=currDir;
         currDir=currGhostDir[ghost];
         int dirCounter;
@@ -1208,6 +1220,11 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             if((PdotCounter == 1 || (lives < 3 && global_dotCounter == 7) 
                     || (global_ghost_timer >= 4)) && ghostArray[1] == 0){
 
+                if(isFrightened ==1){
+                     ghostArray[1] = 3; 
+                     prevState[1] = prevState[0];
+                }
+                
                 xGhostPos[1] = 120; //move pinky above pen when counter limit is reached
                 yGhostPos[1] = 132; 
 
@@ -1218,6 +1235,12 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             ///////INKY///////
             if((IdotCounter == 31 || (lives < 3 && global_dotCounter == 17)
                     || (global_ghost_timer >= 4)) && ghostArray[2] == 0){
+                
+                if(isFrightened ==1){
+                     ghostArray[2] = 3; 
+                     prevState[2] =prevState[0];
+                }
+                
                 xGhostPos[2] = 120; //move pinky above pen when counter limit is reached
                 yGhostPos[2] = 132; 
 
@@ -1230,6 +1253,14 @@ static PT_THREAD (protothread_animation (struct pt *pt)){
             ////////CLYDE/////// <3 
             if((CdotCounter == 61 || (lives < 3 && global_dotCounter == 32)
                     || (global_ghost_timer >= 4)) && ghostArray[3] == 0){
+                
+                if(isFrightened ==1){
+                     ghostArray[3] = 3; 
+                     prevState[3] = prevState[0];
+                }
+                
+                
+                
                 xGhostPos[3] = 120; //move pinky above pen when counter limit is reached
                 yGhostPos[3] = 132; 
 
