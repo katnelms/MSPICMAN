@@ -1,0 +1,255 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="UTF-8">
+/Users/KatNelms/Desktop/html tutorials/html template.html
+	<title> Ms PIC-MAN </title>
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+	<script src="https://www.w3schools.com/lib/w3.js"></script>
+
+	<body>
+		<!-- Navigation (Stays on Top) -->
+		<div class="w3-top w3-bar w3-black">
+			<a href="#home" class="w3-bar-item w3-button">Home</a>
+			<a href="#HighLevelDesign" class="w3-bar-item w3-button">High Level Design</a>
+			<a href="#Hardware" class="w3-bar-item w3-button">Hardware</a>
+			<a href="#Software" class="w3-bar-item w3-button">Software</a>
+			<a href="#Results" class="w3-bar-item w3-button">Results</a>
+			<a href="#conclusions" class="w3-bar-item w3-button">Conclusions</a>
+			<a href="#appendices" class="w3-bar-item w3-button">Appendices</a>
+		</div>
+
+		<!-- HOME: picture, members, intro -->
+		<div id="home" class="w3-content">
+			<!-- Image -->
+				<img src="mspicman.png" alt="MsPIC-MAN" style="width:100%">
+			<!-- Team Members -->
+			<div class="w3-row w3-center">
+
+				<div class="w3-third">
+					<h3>  Grace Ding </h3>
+					<p> aka <i> &quot;not funky fresh&quot;, &quot;The 'ol swap&quot;, &quot;never gonna give u up&quot;,&quot;ever onna give u up&quot;, &quot;ew&quot; </i> </p>
+					<p> Ghost Queen <p>
+					<p> MAE '21, gd268 <p>
+				</div>
+
+				<div class="w3-third">
+					<h3> Melissa Alvarez </h3>
+					<p> aka <i> &quot;funky, but not fresh&quot;, &quot;The 'ol switcheroo&quot;, &quot;never gonna let u down&quot; , &quot;doin me a frighten &quot;</i> </p>
+					<p> algorithm software <p>
+					<p> ECE '21, ma837 <p>
+				</div>
+
+				<div class="w3-third">
+					<h3>Kat Nelms</h3>
+					<p> aka <i> &quot;funkiest, freshest&quot;, &quot;The Flip&quot;, &quot;never gonna run around n desert u&quot;, &quot; clyde loml&quot; </i> </p>
+					<p> algorithm software, web design <p>
+					<p> MSE '20, MAE '21, kn398 <p>
+				</div>
+			</div>
+			
+			<div class="w3-justify">
+			<h2> Introduction </h2>
+				<p> For our final project, we aimed to recreate a simplified version of the classic arcade game Ms. Pac-man using the PIC32 microcontroller and other provided hardware and software. This semester took place during the COVID-19 pandemic, so all hardware was accessed remotely. We opted for a video game given the limitations on use of hardware when working remotely and the mutual interest of the group. We discussed a couple of Atari-esque options and settled on Pac-Man because the game had clear checkpoints in building complexity and opportunities to use several PIC32 peripherals. We thought these two aspects were appropriate for a final project, and they will be discussed in detail below. Finally, we opted for Ms. Pac-Man because Kat wanted the project to be pink somehow. Unfortunately, it turned out that the contrast using a pink maze and a webcam did not lend itself to amazing visibility (see blooper reel). We opted for a blue and black maze in the end so that we could see what we were doing. </p>
+				<p> The original Pac-Man game has 256 levels with the same maze geometry and increasing difficulty with each level. The premise of the game is to control Pac-Man through a dot-filled maze using a joystick, the goal being to eat all of the dots on the screen and avoid the four ghosts (Blinky, Pinky, Inky, and Clyde). Our minimum requirement is to have a single level of the original maze with gameplay as follows: the user starts the game using a Python GUI acting as the “arcade cabinet”. The game itself is displayed on an Adafruit TFT LCD Display Model 1480 and takes in “joystick” input using arrow or WASD keys. We aimed to maintain the original premise of “eat the dots, avoid the ghosts” but scale down to fit within the ~4 week timespan
+</p>
+				<p> Though we aimed to recreate as much of the original logic as possible, we decided on the following set of reasonable  requirements: 
+					<ul> 
+					<li> Positions plotted with each character as a tile. Ms. PIC-man should move at 8 tiles per second and ghosts should move at 					    		     80% of that speed </li>
+					<li> Points increment as dots are eaten (i.e. as Ms. PIC-man moves through their tiles) </li>
+					<li> Three lives, with Ms. PIC-man and ghost position reset after lives are lost. </li>
+					<li> Points increment as dots are eaten (i.e. as Ms. PIC-man moves through their tiles) </li>
+					<li> Remaining lives are displayed, along with points and fruit</li>
+					<li> &quot;Game Over&quot; screen displayed after all three lives are lost or player wins </li>
+					<li> Ghosts are initially released from the monster pen according to the dot counter of level 1 of the original game, counters are reset 					     once ghosts are eaten </li>
+					<li> Ghosts follow path logic according to their personalities </li>
+					<li> Frighten mode enabled by eating large dots. Ghosts reappear in pen but eyes don’t float across the screen  </li>
+					<li> Fruit appears twice per level according to the original game’s dot counter </li>
+					</ul>
+				</p>
+			</div> <!--end justify>
+		</div> <!-- End Home -->
+
+
+
+
+
+		<!-- HIGH LEVEL DESIGN -->
+		<div id="HighLevelDesign" class="w3-content">
+		<div class="w3-justify">
+			<h1> High Level Design </h1>
+			<p> Most of our high level design stems from the key game play elements which we strived to emulate in an effort to enhance gameplay. We began by initializing the maze. In the original game, the maze is contained within a 28x36 tile grid, where each tile is 8x8 pixels for a total screen size of 224 x 288 pixels. Our TFT display is 240 x 320 pixels, so we centered the 224 x 288 pixel grid within the TFT. The grid is split into &quot;dead space &quot; and &quot;legal space&quot;. In the latter, most tiles contain a dot at the center of the tile. Each maze has 244 dots, 240 small dots worth 10 points each and 4 large dots worth 50 points each for a total of 2600 points for clearing the maze. In addition, eating a large dot causes the ghosts to go into “frightened” mode, indicated by a dark blue color during which Ms. PIC-man can eat the ghost for an increasing number of points for each ghost (200, 400, 800, 1600). The ghosts begin each round within a “monster pen”, and their eyes return to the pen when eaten. Finally, points can be scored by eating the two bonus fruits of each round, points varying by level. The bonus fruit appears for 9-10s after 70 dots have been cleared and then again once 170 dots are cleared. If Ms. PIC-Man loses a life due to collision with the ghost, the ghosts are returned to the pen, and Ms. PIC-Man is reset at the starting position. When the maze is cleared of all dots, the board is reset, and a new round begins. The game is over when Ms. PIC-man runs out of lives.</p>
+
+			<!-- expectation v reality -->
+			<div class="w3-row w3-center">
+
+				<div class="w3-half">
+					<img src="tiles.png" alt="tile grid" style="width:98%"> 
+				</div>
+
+				<div class="w3-half">
+					<img src="pacmanfilled.jpeg" alt="our maze" style="width:100%"> 
+				</div>
+			<p> <b> <i> Pictures of the 28x36 tile grid [1] vs our completed map </i> </b> </p>
+			</div>
+
+
+			<p> Besides this basic outline, the main element of gameplay is the ghost behavior. First, the ghosts have three modes: Chase, scatter, and frightened. Frightened is the familiar mode triggered by large dots. In both scatter and chase mode, ghosts move towards a target tile. The difference in these two modes is that in chase mode, the target tiles are a function of Ms. PIC-man’s position, and the exact algorithm controls how aggressively each ghost pursues Ms. PIC-Man. In scatter mode, the ghosts stop pursuing Ms. PIC-man for a few seconds as their target tile becomes their home corners. The switch from chase to scatter happens four times per level at predetermined intervals controlled by a timer. The shift between modes is indicated by a reversal of direction, and these are the only times that the ghosts can reverse direction. Ghosts do not change direction when switching from frightened to chase or scatter mode. </p>
+			<p> The next key behavior is the ghost pathfinding logic. Most of the time, the ghost only has one legal direction which it can move (forward) due to the dead space and illegality of reversal. At intersections, the ghost will move in the direction closest to its target tile, and in the case of a tie, ghosts will move to the first legal tile found in the order: up, left, down, right. The exception is frightened mode, in which ghosts use a pseudo-random number generator to pick a way to turn at each intersection in this mode. Each ghost has a different target tile which gives them different personalities. Blinky’s target is Ms. PIC-man, Pinky’s is offset four tiles away from Ms. PIC-Man in the direction Ms. PIC-Man is currently moving. Inky’s offset is a complicated combination of Ms. PIC-man and Blinky’s position, and Clyde’s target differs based on his proximity to Ms. PIC-man. The original game has a bug in which, when Ms. PIC-man is moving up, Pinky and Inky’s target tile is offset to the left. We opted to keep this bug in our own path logic. Finally, which tile a character occupies is determined by its centerpoint, and collisions occur when two characters occupy the same tile. This is just a high level summary of the main features; an in depth summary of how our logic compares to the original is included in the results section, and our approach is detailed in the code architecture section. </p>
+			</div> <!--justify-->
+		</div> <!-- End HLD -->
+
+
+
+
+
+		<!-- HARDWARE -->
+		<div id="Hardware" class="w3-content">
+		<div class="w3-justify">
+			<h1> Hardware </h1>
+			<p> This section serves as a high level description of the hardware provided for this lab. Note, that we completed the lab remotely, so rather than choosing hardware to meet requirements, we adjusted our software and implementation to meet the requirements imposed by the remote hardware. Each hardware element is connected to the lab PC, which we accessed remotely through Cornell’s VPN. [2]</p>
+			<p> First, the key to this lab was the PIC32 microcontroller, which is included in the Big Board (SECABB). The Big Board is the board designed for the course and contains connections from the PIC32 to all of the necessary external hardware. We programmed the SECABB through our Protothreads C program to control both external hardware and the PIC’s internal peripherals. The external connections were managed through a &quot;Remote Learning Board&quot;, and we used commands from the “plib” library to control peripherals. [2,3] In addition, a UART to USB adafruit serial connection was used between the PIC32 and remote PC so that we could interact with the PIC32 via a python GUI (i.e. our arcade cabinet and start button). We used Peripheral Pin Select to assign port pins as input and output for the UART connection. Specifically, PPSInput was used to assign the receive line, U2RX, to pin RPA1. Similarly, PPSOutput was used to assign the transmit line, U2TX, to pin RPB10. The RX and TX lines assigned to RPA1 and RPB10 correspond to PIC32 pins 3 and 21, respectively. [3,4] </p>
+			<p> The critical external hardware element was the Adafruit TFT LCD Display Model 1480.[5] The TFT was connected to the PIC through an SPI channel. SPI Channel 2 is enabled in the main thread of our Protothreads C program using the “SpiChnOpen” command. This command turns on the SPI channel, which uses a fixed clock line at RB15, or i/o pin 26 on the PIC32.  In addition to displaying the game, the tft allowed us to print variables or change the color of the screen when certain threads were enabled to confirm their processing, etc. This method of debugging turned out to be essential because the serial connected between the PIC32 and remote PC was often disconnected. This disconnect was easily fixed by plugging and unplugging the USB, but only if a member of the course staff was in the lab. As such, we were often unable to print to the GUI or to another serial console such as Putty. Further, our visibility was heavily dependent on whether the lights were on in the lab, whether it was sunny outside, etc, so we heavily relied on printing text or colors to debug. </p>
+			<p> Finally, we did configure the MCP4822 digital to analog converter (DAC) within our MAIN protothread with the intention of adding sound effects if we had time. The DAC is used to convert the digitally synthesized waveforms into an analog frequency sweep. It outputs sound in the audible range through a remote interface such that we can hear through the zoom connection. We also configured the 16 bit timer2 and enabled ISRs. Our intention was to have the ISR trigger at an appropriate interval such that, if a flag was set, we could output a tone to the DAC, changing the tone with each trigger until a song was completed.  However, we likely did not have the memory available to store a vector containing tone information for each song, and would have had to come up with some kind of piecewise function for each sound effect to solve within the ISR which would take in a counter and output the tone needed. With only a day or two to spare, we opted to focus on small bugs and refining gameplay rather than tackle game start, game over, collision, and bonus point sound effects. </p>
+
+		</div> <!-- End Justify -->
+		</div> <!-- End hardware -->
+
+
+
+
+
+
+		<!-- SOFTWARE -->
+		<div id="Software" class="w3-content">
+		<div class="w3-justify">
+			<h1> Software </h1>
+			<h3> <i> Remote Interface via Python GUI </i> </h3>
+			<p> To program the PIC32, we used MPLABX version 3.05 toolset along with an XC32 compiler version 1.40. MPLABX allowed us to program the PIC32 in C, specifically utilizing commands included in the PIC32 peripheral library “plib”. In addition, our programs used Protothreads 1.2.3 for threading and to drive the TFT-LCD and UART as described in the previous section. We used PySimpleGUI to build the user interface, and we used pyserial to enable the python-PIC32 serial interface. To enable protothreads within C, we included &quot;config_1_3_2.h&quot; and &quot;pt_cornell_1_3_2_python.h&quot;, the latter of which is code adapted from the protothreads developer for use in this course. We also needed the standard math libraries math and stdlib, as well as graphics libraries to enable connection to the TFT. </p>
+			<p>The python GUI supports push buttons, toggle switches, sliders and general text input/output. We only used a button to signal to the program to start the game. The key to defining elements within the GUI was to follow a specific convention encompassed by PySimpleGUI: our GUI elements were given a “key” of the form “buttonNN” where the N denotes element number. When a user interacts with an element, the event is communicated to the PIC32 via serial connection. The serial data contains the type of element and the element number based on the key assigned. For example, we defined the “Start” button as “button01”, and the key communicated to the protothreads C program was “b01”. This key is then parsed within our C program to extract element type, i.e. button, slider, or toggle (see “Python Serial Thread” in the included code). Once parsed, the GUI element is identified and used to trigger a corresponding thread, e.g. when “b01” is sent to the parsing thread, the “b” indicates that the element was a button, and the parsing thread sets a button flag = 1 to signal the button thread. The relevant element thread then identifies the element number and sets flags accordingly </p>
+
+			<h3> <i> Code Architecture </i> </h3>
+			<p> <b> Main: </b> initializes DAC & ISRS, mostly use it to set up the 28x36 tile maze, lives, score counter, and initialize the four threads: thread to parse input from GUI (start button), animation thread, arrows thread, timer thread. Note that to initialize the maze, we hard coded two 28x36 arrays. The first array stores 1s for legal space and 0s for dead space. The second array is the “dots” array, which stores a 1 for a tile containing a dot, 2 for a “big dot”, and a 0 for an empty tile. </p>
+			<p> <b> Timer thread: </b> Yields every second. We used this to increment the counter that keeps track of what modes the ghosts are in. Ghosts start in the first scatter mode, which lasts 7s. The second scatter mode also lasts 7s, and the next two are only 5s. These are offset by 20s of chase mode, and the last chase mode lasts indefinitely. The only caveat is that the chase/scatter counter is reset every time a life is lost. We also use this timer to increment a counter to 10s whenever fruit is released. </p>
+			<p> <b> Animation thread: </b>  This was the bulk of the code until we decided to clean things up by moving chunks of code into functions instead for clarity/processing speed. The main function this thread serves is to update the character positions and enforce dead space. There’s separate sections which serve to calculate the Ms. PIC-Man and ghost positions, and the last few lines of code plot over the old character position and replot their new position. </p>
+			<p>The first thing done in the thread is to solve for Ms. PIC-Mans current tile based on position stored in pixels, and then check if a dot has been eaten (check if the dots array contains a 1 for the current tile). This step is done first because the ghosts are released from the monster pen according to various dot counters. If a dot was eaten, the counters are updated and the “dots” function is called. More on this later. If a Big Dot was eaten, a flag is set to trigger frighten mode</p>
+			<p> Next, we solve for Ms. PIC-Man’s new position. Ms. PIC-Man is controlled by user input, and the thread uses a series of if statements to check the current direction, calculate the tile that Ms. PIC-Man is moving into, and check if the tile is legal space or dead space. Pls Elaborate plss </p>
+			<p> Paragraph about ghost stuff here </p>
+			<p> Finally, after character positions have been updated, we check for collisions by checking if any of the ghosts occupy the same tile as Ms. PIC-Man. If the ghosts are in frighten mode, then they’re moved back to the monster pen after a collision and points are scored according to 2^ (number of ghosts eaten)*100. Otherwise, a life is lost and characters are reset. If all three lives are lost, then “GAME OVER” is printed and the maze and a number of counters are reset. An interesting bug from the original game is that very occasionally, a ghost will be leaving a tile at the instant that Ms. PIC-Man enters a tile. The result is that the ghost and Ms. PIC-Man seem to pass through each other without a collision. </p>
+			<p> <b> Arrows Thread: </b>  I have no idea what this thread does pls elaborate </p>
+			<p> <b> newLevel function: </b>  resets counters and flags, calls resetMap and resetGhosts. If penultimate level is cleared, call level 256 bug function.</p>
+			<p> <b> resetMap function: </b>  resets the array used to keep track of which dots have been eaten, resets the maze by reprinting new set of 244 dots. This is only called if a level is complete or if the game is over. This function also calls resetGhosts, but only if the game has been started, as no characters are on the screen until START is pressed on the GUI </p>
+			<p> <b> resetGhosts function: </b>  Resets Ms. PIC-Man and ghosts to initial positions. We also used this to reset the ghost mode to their original states, and reset counters used for scatter/chase mode, and some other ghost behavior counters.  </p>
+			<p> <b> checkDots function: </b>  checks how many dots have been eaten each time a dot is eaten. Releases the first fruit after 70 dots are eaten, and the second fruit after 170 dots are eaten. We also call newLevel if maze is cleared - another reason why the animation thread checks dots immediately is because replotting character positions is irrelevant as soon as the level is complete. </p>
+			<p> <b> Target Tile function </b>  I have no idea what this thread does pls elaborate </p>
+			<p> <b> Frighten mode function: </b>  I have no idea what this thread does pls elaborate </p>
+  
+			<p> <b> 256 bug:</b>  As mentioned previously, the original game has 256 levels. As a fun fact, level 19 is repeated 237 times!! The developers never expected any normal person to get significantly further than that, so they didn’t realize that there’s actually an overflow error when the maze is reset for the 256th time. The result is the  “split screen” (Fig. 3). The characters are invisible on the right half of the screen, though the ghosts are still active. It’s actually impossible to win the game, as a “complete level” is only registered when 244 dots have been eaten. The last level is missing roughly half of the dots, so the last level goes on until players run out of lives. We thought this was nifty and aimed to recreate it. </p>
+			<p> This function sets a flag for the animation thread. If a player is on the level 256 replica, characters are only replotted if on the left half of the screen. We also clear the dots on the right side so the level can never be completed, and then plot over the right side to replicate ish the original overflow. We didn’t replicate the screen exactly, but noticed that the seemingly randomly placed characters actually follow a grid (see appendix). We hard coded a 16x32 char array containing characters to be printed or X for empty space, and a second char array containing the color to be printed. We modified Bruce’s “print line on tft” to print characters in 8 pixel rows and columns so as to match the 8x8 pixel grid tiles. We looped through each tile and check the char to be printed. If not a blank space, we printed the character in the color stored in the colors array on black background. If an X was stored, we printed color on color. The color on color printing was buggy, but we were still able to capture the essence of the 256 bug. </p>
+
+		</div> <!-- End Justify -->
+		</div> <!-- End software -->
+
+
+
+
+		<!-- RESULTS -->
+		<div id="Results" class="w3-content">
+		<div class="w3-justify">
+			<h1> Results </h1>
+			<p> The key to Ms. PIC-Man was the ghost behavior. In addition to the path logic and encoding the three modes, we were also able to include the majority of the small details pertaining to ghosts. For example, ghosts changing direction at the switch between modes (except for from frightened mode back to the previous mode). Similarly, we programmed each ghost's &quot;dot counter&quot; which controls ghost release according to the original game: counters are active when inside the ghost house, but only for one ghost at a time. The order of preference is Pinky, Inky, then Clyde. Whenever a life is lost, the system disables (but does not reset) the ghosts' individual dot counters and uses a global dot counter instead. Pls elaborate on the ghost release flaw ? </p>
+			<p> We were also happy to include three of the main bugs: ghosts “passing through” Ms. PIC-Man, the target tile bug for Pinky and Inky, and the level 256 bug. Interestingly, in the original level 256 the maze changes in addition to being hidden, and there are nine dots remaining. We didn’t bother to redraw new maze walls and simply cleared the right side of the dots array. As noted earlier, we didn’t exactly duplicate the graphics but captured the essence. Of the small details remaining, we would have liked to implement a feature where, if Ms. PIC-Man follows a specific set of joystick commands, the ghosts can be “trapped” moving up and down along the edge of the split screen. </p>
+
+			<!-- expectation v reality -->
+			<div class="w3-row w3-center">
+
+				<div class="w3-half">
+					<img src="og256.png" alt="level 256" style="width:98%"> 
+				</div>
+
+				<div class="w3-half">
+					<img src="replica256.jpg" alt="replica of level 256" style="width:100%"> 
+				</div>
+			</div>
+			<div class="w3-row w3-center">
+			<p> <b> <i>  the original level 256 compared to our hardcoded replica </i> </b> </p>
+			</div>
+
+			<p> We did not write any skeleton code to allow for increasing difficulty with each level, but rather just have level one repeat indefinitely until a flag triggers the level 256 replica.Notably, aspects like the scatter and frighten mode duration decrease, dots required for ghosts to be released are decreased, ghost speed increases, etc. with each level to make the game subtly more difficult.  Pls elaborate on cornering and speed plss, mention animation speed 30 fps instead of 60 </p>
+			<p> If we had infinite time, our next objective was the sound effects, followed by aesthetic features such as the ghost eyes floating back to the pen, Ms. PIC-Man chomping, leaderboard displayed after game over, etc. Regarding efficiency, we could have cleaned things up by moving the five large hard coded arrays to a separate .h file to be included. We did clean up our code by using arrays to store ghost information rather than sets of 4 variables, and functions to store commands that were repeated. We also could have made almost all of our variables chars instead of ints to save some computer cycles. Some other small details we would have liked to add were the extra life after enough points scored. The fruit timer is also a randomly generated value between 9 and 10s, but we simply hard coded it the 10s because our timer thread yielded for a second at a time. Finally, there are two zones on the map where ghosts are forbidden from making upward turns if in scatter and chase mode, and we excluded this bit of logic in our version </p>
+		</div> <!-- End Justify -->
+		</div> <!-- End results -->
+
+
+
+
+
+		<!-- CONCLUSIONS -->
+		<div id="conclusions" class="w3-content">
+		<div class="w3-justify">
+			<h1> Conclusions </h1>
+			<p> Overall, we were able to achieve a pretty accurate replica of the first level of Pac-Man. The main things we left out were the progression of game difficulty with each level, sound effects, and aesthetics. We went beyond the main point of generating an accurate maze and the “eat the dots, avoid the ghosts”. We were also able to recreate the path finding logic unique to each ghost which makes the game interesting, as well as numerous small details and bugs included in the original game. We’re quite proud of the final result, especially given the limited visibility and obstacles in debugging with remote hardware. </p>
+		</div> <!-- End Justify -->
+		</div> <!-- End conclusions -->
+
+		<!-- APPENDICES -->
+		<div id="appendices" class="w3-content">
+		<div class="w3-justify">
+			<h1> Appendices </h1>
+			<p> <b> The group approves this report for inclusion on the course website. The group approves the video for inclusion on the course youtube channel. </b></p>
+			<h3><i> Source Code </i></h3>
+			<p> Code written for this project can be found <a href="https://github.com/katnelms/MSPICMAN.git"> Here </a> </p>
+
+
+			<h3><i>Blooper Reel </i></h3>
+			<!-- Bad res pics -->
+			<div class="w3-row w3-center">
+				<div class="w3-third">
+					<img src="pinkattempt.png" alt="Pink attempt" style="width:90%"> 
+					<p> Visibility dramatically decreased when we attempted to make the map pink</p>
+				</div>
+
+				<div class="w3-third">
+					<img src="blurry.png" alt="blurry map" style="width:92%"> 
+					<p> Majority of the time the screen looked like this via webcam </p>
+				</div>
+
+				<div class="w3-third">
+					<img src="sunny.png" alt="sunny" style="width:90%"> 
+					<p> On the rare sunny day in Ithaca our map was hidden</p>
+				</div>
+			</div>
+
+			
+			<!-- ghosts b wilding -->
+			<div class="w3-row w3-center">
+
+				<div class="w3-half">
+					<!-- <embed src="ghost chaos.mov" autostart="false" height="30" width="144" /> -->
+				</div>
+
+				<div class="w3-half">
+					<!-- <embed src="penmadness.mov" autostart="false" height="30" width="144" />  -->
+				</div>
+				<p> Just some clips of the ghosts misbehaving before all the kinks were worked out </p>
+			</div>
+
+			<!-- oof -->
+			<div class="w3-row w3-center">
+			<img src="grid.png" alt="sunny" style="width:100%"> 
+			<p> Tediously crafted grid used as a reference when hard coding the 256 bug. Love is in the details ?? </p>
+			</div>
+			
+			<br>
+			<h3><i> References </i></h3>
+			<p> [1] <a href="https://www.gamasutra.com/view/feature/3938/the_pacman_dossier.php?print=1#:~:text=The%20visible%20game%20screen%20should,x%2036%20tiles%20in%20size.">Blog post by Jamey Pittman </a> </p>
+			<p> [2] <a href="https://people.ece.cornell.edu/land/courses/ece4760/PIC32/index_remote.html">ECE 4760 Remote Hardware Page </a> </p>
+			<p> [3] <a href="https://people.ece.cornell.edu/land/courses/ece4760/PIC32/target_board.html">ECE 4760 SEACABB Page </a> </p>
+			<p> [4] <a href="https://people.ece.cornell.edu/land/courses/ece4760/PIC32_details.html">PIC32 I/O </a> </p>
+			<p> [5] <a href="https://people.ece.cornell.edu/land/courses/ece4760/PIC32/index_TFT_display.html">TFT </a> </p>
+		</div> <!-- End Justify -->
+		</div> <!-- End appendices -->
+
+	</body>
+</html>
