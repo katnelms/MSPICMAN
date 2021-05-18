@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
 	<meta charset="UTF-8">
-/Users/KatNelms/Desktop/html tutorials/html template.html
+<!--/Users/KatNelms/Desktop/html tutorials/html template.html-->
 	<title> Ms PIC-MAN </title>
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
@@ -24,28 +24,35 @@
 		<div id="home" class="w3-content">
 			<!-- Image -->
 				<img src="mspicman.png" alt="MsPIC-MAN" style="width:100%">
+			<!-- Group Name -->
+			<div class="w3-row w3-center">
+					<h1> </h1>
+			</div>
+			<div class="w3-row w3-center">
+					<p style="font-size:40px"><b>the 3 muskrat tiers</b></p>
+			</div>
 			<!-- Team Members -->
 			<div class="w3-row w3-center">
 
 				<div class="w3-third">
 					<h3>  Grace Ding </h3>
-					<p> aka <i> &quot;not funky fresh&quot;, &quot;The 'ol swap&quot;, &quot;never gonna give u up&quot;,&quot;ever onna give u up&quot;, &quot;ew&quot; </i> </p>
+					<p> aka <i> <a href=" " title="bottom tier" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;not funky fresh&quot;</a>, &quot;The 'ol swap&quot;, <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" title="click this! you won't be disappointed" target="_blank" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;never gonna give u up&quot;</a>,<a href=" " title="my &quot;n&quot; key broke" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;ever goa give u up&quot;</a>, &quot;ew&quot;,&quot;backyardigans H8ER&quot;, <a href=" " title="someone (who shall not be named) misspelled pinky in the comments of our code" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;piny💖&quot;</a> </i> </p>
 					<p> Ghost Queen <p>
-					<p> MAE '21, gd268 <p>
+					<p> B.S. MAE '21, M.Eng. MAE '21, gd268 <p>
 				</div>
 
 				<div class="w3-third">
 					<h3> Melissa Alvarez </h3>
-					<p> aka <i> &quot;funky, but not fresh&quot;, &quot;The 'ol switcheroo&quot;, &quot;never gonna let u down&quot; , &quot;doin me a frighten &quot;</i> </p>
+					<p> aka <i> <a href=" " title="mid tier" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;funky, but not fresh&quot;</a>, &quot;The 'ol switcheroo&quot;,<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" title="c'mon you gotta click it now" target="_blank" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;never gonna let u down&quot;</a>,<a href=" " title="frighten mode be like that" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;doin me a frighten &quot;</a>, <a href=" " title="no one wants to listen to this sorry bud" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;backyardigan STAN&quot;</a></i> </p>
 					<p> algorithm software <p>
-					<p> ECE '21, ma837 <p>
+					<p> B.S. ECE '21, ma837 <p>
 				</div>
 
 				<div class="w3-third">
 					<h3>Kat Nelms</h3>
-					<p> aka <i> &quot;funkiest, freshest&quot;, &quot;The Flip&quot;, &quot;never gonna run around n desert u&quot;, &quot; clyde loml&quot; </i> </p>
+					<p> aka <i> <a href=" " title="top tier" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;funkiest, freshest&quot;</a>, &quot;The Flip&quot;,<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" title="just click it already" target="_blank" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot;never gonna run around n desert u&quot;</a>, <a href=" " title="literally obsessed with clyde????" style="background-color:#FFFFFF;color:#000000;text-decoration:none">&quot; clyde loml&quot;</a> </i> </p>
 					<p> algorithm software, web design <p>
-					<p> MSE '20, MAE '21, kn398 <p>
+					<p> B.S. MSE '20, M.Eng. MAE '21, kn398 <p>
 				</div>
 			</div>
 			
@@ -137,7 +144,7 @@
 			<p> Next, we solve for Ms. PIC-Man’s new position. Ms. PIC-Man is controlled by user input, and the thread uses a series of if statements to check the current direction, calculate the tile that Ms. PIC-Man is moving into, and check if the tile is legal space or dead space. Pls Elaborate plss </p>
 			<p> Paragraph about ghost stuff here </p>
 			<p> Finally, after character positions have been updated, we check for collisions by checking if any of the ghosts occupy the same tile as Ms. PIC-Man. If the ghosts are in frighten mode, then they’re moved back to the monster pen after a collision and points are scored according to 2^ (number of ghosts eaten)*100. Otherwise, a life is lost and characters are reset. If all three lives are lost, then “GAME OVER” is printed and the maze and a number of counters are reset. An interesting bug from the original game is that very occasionally, a ghost will be leaving a tile at the instant that Ms. PIC-Man enters a tile. The result is that the ghost and Ms. PIC-Man seem to pass through each other without a collision. </p>
-			<p> <b> Arrows Thread: </b>  I have no idea what this thread does pls elaborate </p>
+			<p> <b> Arrows Thread: </b>  reads keyboard input from the Python GUI for the up/down/left/right/W/A/S/D keys and saves the key stroke</p>
 			<p> <b> newLevel function: </b>  resets counters and flags, calls resetMap and resetGhosts. If penultimate level is cleared, call level 256 bug function.</p>
 			<p> <b> resetMap function: </b>  resets the array used to keep track of which dots have been eaten, resets the maze by reprinting new set of 244 dots. This is only called if a level is complete or if the game is over. This function also calls resetGhosts, but only if the game has been started, as no characters are on the screen until START is pressed on the GUI </p>
 			<p> <b> resetGhosts function: </b>  Resets Ms. PIC-Man and ghosts to initial positions. We also used this to reset the ghost mode to their original states, and reset counters used for scatter/chase mode, and some other ghost behavior counters.  </p>
