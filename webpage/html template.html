@@ -26,10 +26,8 @@
 				<img src="mspicman.png" alt="MsPIC-MAN" style="width:100%">
 			<!-- Group Name -->
 			<div class="w3-row w3-center">
-					<h1> </h1>
-			</div>
-			<div class="w3-row w3-center">
-					<p style="font-size:40px"><b>the 3 muskrat tiers</b></p>
+					<p style="font-size:70px;margin-bottom:0px"><b>Ms. PIC-Man</b></p>
+					<p style="font-size:30px;margin-top:0px;margin-bottom:60px"><b>by the 3 muskrat tiers</b></p>
 			</div>
 			<!-- Team Members -->
 			<div class="w3-row w3-center">
@@ -141,16 +139,23 @@
 			<p> <b> Timer thread: </b> Yields every second. We used this to increment the counter that keeps track of what modes the ghosts are in. Ghosts start in the first scatter mode, which lasts 7s. The second scatter mode also lasts 7s, and the next two are only 5s. These are offset by 20s of chase mode, and the last chase mode lasts indefinitely. The only caveat is that the chase/scatter counter is reset every time a life is lost. We also use this timer to increment a counter to 10s whenever fruit is released. </p>
 			<p> <b> Animation thread: </b>  This was the bulk of the code until we decided to clean things up by moving chunks of code into functions instead for clarity/processing speed. The main function this thread serves is to update the character positions and enforce dead space. There’s separate sections which serve to calculate the Ms. PIC-Man and ghost positions, and the last few lines of code plot over the old character position and replot their new position. </p>
 			<p>The first thing done in the thread is to solve for Ms. PIC-Mans current tile based on position stored in pixels, and then check if a dot has been eaten (check if the dots array contains a 1 for the current tile). This step is done first because the ghosts are released from the monster pen according to various dot counters. If a dot was eaten, the counters are updated and the “dots” function is called. More on this later. If a Big Dot was eaten, a flag is set to trigger frighten mode</p>
-			<p> Next, we solve for Ms. PIC-Man’s new position. Ms. PIC-Man is controlled by user input, and the thread uses a series of if statements to check the current direction, calculate the tile that Ms. PIC-Man is moving into, and check if the tile is legal space or dead space. Pls Elaborate plss </p>
+			<p> Next, we solve for Ms. PIC-Man’s new position. Ms. PIC-Man is controlled by user input, and the thread uses a series of if statements to check the current direction, calculate the tile that Ms. PIC-Man is moving into, and check if the tile is legal space or dead space. If Ms. PIC-Man was turning a corner, we automatically center the character in the middle of the tile in order to prevent our drawing from hitting the walls. We also check if we are in the tunnel and wrapping from one side of the screen to the other. If the next tile if determined to be valid, Ms. PIC-Man moves forward one pixel. If the next tile is not valid, Ms. PIC-Man is redrawn in the same place.</p>
 			<p> Paragraph about ghost stuff here </p>
 			<p> Finally, after character positions have been updated, we check for collisions by checking if any of the ghosts occupy the same tile as Ms. PIC-Man. If the ghosts are in frighten mode, then they’re moved back to the monster pen after a collision and points are scored according to 2^ (number of ghosts eaten)*100. Otherwise, a life is lost and characters are reset. If all three lives are lost, then “GAME OVER” is printed and the maze and a number of counters are reset. An interesting bug from the original game is that very occasionally, a ghost will be leaving a tile at the instant that Ms. PIC-Man enters a tile. The result is that the ghost and Ms. PIC-Man seem to pass through each other without a collision. </p>
-			<p> <b> Arrows Thread: </b>  reads keyboard input from the Python GUI for the up/down/left/right/W/A/S/D keys and saves the key stroke</p>
+			
+			<p> <b> Arrows Thread: </b>  reads keyboard input from the Python GUI for the up/down/left/right/W/A/S/D keys and saves the key stroke.</p>
+			
 			<p> <b> newLevel function: </b>  resets counters and flags, calls resetMap and resetGhosts. If penultimate level is cleared, call level 256 bug function.</p>
+			
 			<p> <b> resetMap function: </b>  resets the array used to keep track of which dots have been eaten, resets the maze by reprinting new set of 244 dots. This is only called if a level is complete or if the game is over. This function also calls resetGhosts, but only if the game has been started, as no characters are on the screen until START is pressed on the GUI </p>
+			
 			<p> <b> resetGhosts function: </b>  Resets Ms. PIC-Man and ghosts to initial positions. We also used this to reset the ghost mode to their original states, and reset counters used for scatter/chase mode, and some other ghost behavior counters.  </p>
+			
 			<p> <b> checkDots function: </b>  checks how many dots have been eaten each time a dot is eaten. Releases the first fruit after 70 dots are eaten, and the second fruit after 170 dots are eaten. We also call newLevel if maze is cleared - another reason why the animation thread checks dots immediately is because replotting character positions is irrelevant as soon as the level is complete. </p>
-			<p> <b> Target Tile function </b>  I have no idea what this thread does pls elaborate </p>
-			<p> <b> Frighten mode function: </b>  I have no idea what this thread does pls elaborate </p>
+			
+			<p> <b> moveGhosts function </b>  takes a ghost, the ghost's x and y positions and the ghost's target tile as input and moves the ghost one pixel in the direction it should travel in. If the ghost is crossing into a new tile, this function calculates the next direction to move in when it gets to the next tile by using the target tile and the algorithm described above.</p>
+			
+			<p> <b> moveGhostsFrightenMode function: </b>  takes a ghost and the ghots's x and y positions as input and moves the ghost one pixel in the direction it should travel in. If frighten mode has just been triggered, it reverses the ghost directions. Otherwise, it moves the ghost in the current direction until an intersection is reached. It then uses a randomly generated number to pick a random direction to go in and continues moving.</p>
   
 			<p> <b> 256 bug:</b>  As mentioned previously, the original game has 256 levels. As a fun fact, level 19 is repeated 237 times!! The developers never expected any normal person to get significantly further than that, so they didn’t realize that there’s actually an overflow error when the maze is reset for the 256th time. The result is the  “split screen” (Fig. 3). The characters are invisible on the right half of the screen, though the ghosts are still active. It’s actually impossible to win the game, as a “complete level” is only registered when 244 dots have been eaten. The last level is missing roughly half of the dots, so the last level goes on until players run out of lives. We thought this was nifty and aimed to recreate it. </p>
 			<p> This function sets a flag for the animation thread. If a player is on the level 256 replica, characters are only replotted if on the left half of the screen. We also clear the dots on the right side so the level can never be completed, and then plot over the right side to replicate ish the original overflow. We didn’t replicate the screen exactly, but noticed that the seemingly randomly placed characters actually follow a grid (see appendix). We hard coded a 16x32 char array containing characters to be printed or X for empty space, and a second char array containing the color to be printed. We modified Bruce’s “print line on tft” to print characters in 8 pixel rows and columns so as to match the 8x8 pixel grid tiles. We looped through each tile and check the char to be printed. If not a blank space, we printed the character in the color stored in the colors array on black background. If an X was stored, we printed color on color. The color on color printing was buggy, but we were still able to capture the essence of the 256 bug. </p>
@@ -183,7 +188,12 @@
 			<p> <b> <i>  the original level 256 compared to our hardcoded replica </i> </b> </p>
 			</div>
 
-			<p> We did not write any skeleton code to allow for increasing difficulty with each level, but rather just have level one repeat indefinitely until a flag triggers the level 256 replica.Notably, aspects like the scatter and frighten mode duration decrease, dots required for ghosts to be released are decreased, ghost speed increases, etc. with each level to make the game subtly more difficult.  Pls elaborate on cornering and speed plss, mention animation speed 30 fps instead of 60 </p>
+			<p> We did not write any skeleton code to allow for increasing difficulty with each level, but rather just have level one repeat indefinitely until a flag triggers the level 256 replica. Notably, aspects like the scatter and frighten mode duration decrease, dots required for ghosts to be released are decreased, ghost speed increases, etc. with each level to make the game subtly more difficult. 
+
+			The original Ms. PIC-Man was animated at a rate of 60 fps. We had to lower this down to 30 fps, because the plotting of the circles that represented all of the characters was too slow and prevented us from meeting the timing requirement. This also led to restrictions on the speed of Ms. PIC-Man and the ghosts during the different modes. The original game has Ms. PIC-Man moving at around 70% to 90% of its max speed and the ghosts moving at around 40% to 85% of their max speed depending on the ghost mode and ghost location. Since we are only animating at 30 fps, our control over the percentage of speed that Ms. PIC-Man and the ghosts move at is limited by the fact that the slowest we could move the characters without the animation looking choppy was one pixel per frame. We chose to keep the speed at a constant one pixel per frame for all of the characters during all of the modes execpt frighten mode. During frighten mode, Ms. PIC-Man moves two pixels ever other frame in order to be faster than the ghosts so that it is possible to eat the ghosts.
+
+			We also did not include the &quot;cornering&quot; feature in the original game where Ms. PIC-Man can move diagonally across a tile when turning a corner in order to take the turn faster. The ghosts are not allowed to corner and must turn at a ninety degree angle. We simplified this by restricting both Ms. PIC-Man and the ghosts to only take ninety degree turns.
+			</p>
 			<p> If we had infinite time, our next objective was the sound effects, followed by aesthetic features such as the ghost eyes floating back to the pen, Ms. PIC-Man chomping, leaderboard displayed after game over, etc. Regarding efficiency, we could have cleaned things up by moving the five large hard coded arrays to a separate .h file to be included. We did clean up our code by using arrays to store ghost information rather than sets of 4 variables, and functions to store commands that were repeated. We also could have made almost all of our variables chars instead of ints to save some computer cycles. Some other small details we would have liked to add were the extra life after enough points scored. The fruit timer is also a randomly generated value between 9 and 10s, but we simply hard coded it the 10s because our timer thread yielded for a second at a time. Finally, there are two zones on the map where ghosts are forbidden from making upward turns if in scatter and chase mode, and we excluded this bit of logic in our version </p>
 		</div> <!-- End Justify -->
 		</div> <!-- End results -->
@@ -197,6 +207,22 @@
 		<div class="w3-justify">
 			<h1> Conclusions </h1>
 			<p> Overall, we were able to achieve a pretty accurate replica of the first level of Pac-Man. The main things we left out were the progression of game difficulty with each level, sound effects, and aesthetics. We went beyond the main point of generating an accurate maze and the “eat the dots, avoid the ghosts”. We were also able to recreate the path finding logic unique to each ghost which makes the game interesting, as well as numerous small details and bugs included in the original game. We’re quite proud of the final result, especially given the limited visibility and obstacles in debugging with remote hardware. </p>
+
+			<h3>Final quotes from group members:</h3>
+			<div class="w3-row w3-center">
+				<div class="w3-third">
+					<p>&quot;I wish we did Brick Breaker instead.&quot;</p>
+					<p>-Grace Ding</p>
+				</div>
+				<div class="w3-third">
+					<p>&quot;Time for me to never think about Pacman ever again.&quot;</p>
+					<p>-Melissa Alvarez</p>
+				</div>
+				<div class="w3-third">
+					<p>&quot;Clyde <<<<333333333.&quot;</p>
+					<p>-Kat Nelms</p>
+				</div>
+			</div>
 		</div> <!-- End Justify -->
 		</div> <!-- End conclusions -->
 
