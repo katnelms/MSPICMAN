@@ -196,6 +196,18 @@
 			We also did not include the &quot;cornering&quot; feature in the original game where Ms. PIC-Man can move diagonally across a tile when turning a corner in order to take the turn faster. The ghosts are not allowed to corner and must turn at a ninety degree angle. We simplified this by restricting both Ms. PIC-Man and the ghosts to only take ninety degree turns.
 			</p>
 			<p> If we had infinite time, our next objective was the sound effects, followed by aesthetic features such as the ghost eyes floating back to the pen, Ms. PIC-Man chomping, leaderboard displayed after game over, etc. Regarding efficiency, we could have cleaned things up by moving the five large hard coded arrays to a separate .h file to be included. We did clean up our code by using arrays to store ghost information rather than sets of 4 variables, and functions to store commands that were repeated. We also could have made almost all of our variables chars instead of ints to save some computer cycles. Some other small details we would have liked to add were the extra life after enough points scored. The fruit timer is also a randomly generated value between 9 and 10s, but we simply hard coded it the 10s because our timer thread yielded for a second at a time. Finally, there are two zones on the map where ghosts are forbidden from making upward turns if in scatter and chase mode, and we excluded this bit of logic in our version. </p>
+			<div class="w3-row w3-center">
+				<div class="w3-half">
+					<iframe width="450" height="315" src="https://www.youtube.com/embed/tOhVl6iyHRs" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+					<p> <b> <i>  Game play of Ms. PIC-Man. We are very bad. Also, notice at 0:33, the bug where Pac-Man and the ghost pass through each other occurs.</i> </b> </p>
+				</div>
+				<div class="w3-half">
+					<iframe width="450" height="315" src="https://www.youtube.com/embed/snO_datqiSg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+					<p> <b> <i>  The level 256 bug. Since we suck at the game, it was programmed to switch to the next level after eating one dot.</i> </b> </p>
+				</div>
+			</div>
+			
+			
 		</div> <!-- End Justify -->
 		</div> <!-- End results -->
 
